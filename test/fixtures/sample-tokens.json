@@ -1,0 +1,52 @@
+{
+  "brand": {
+    "brand-300": {
+      "$type": "color",
+      "$value": "#f96302"
+    },
+    "brand-400": {
+      "$type": "color",
+      "$value": "#e95c02"
+    }
+  },
+  "greige": {
+    "greige-900": {
+      "$type": "color",
+      "$value": "#252524"
+    }
+  },
+  "spacing": {
+    "sm": {
+      "$type": "number",
+      "$value": 8
+    },
+    "md": {
+      "$type": "number",
+      "$value": 16
+    },
+    "lg": {
+      "$type": "number",
+      "$value": 24
+    }
+  },
+  "radius": {
+    "sm": {
+      "$type": "number",
+      "$value": 4
+    },
+    "md": {
+      "$type": "number",
+      "$value": 8
+    }
+  },
+  "semantic": {
+    "primary": {
+      "$type": "color",
+      "$value": "{brand.brand-300}"
+    },
+    "text-color": {
+      "$type": "color",
+      "$value": "{greige.greige-900}"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "gap": {
+    "$type": "number",
+    "$value": 0
+  },
+  "radius": {
+    "$type": "number",
+    "$value": 0
+  },
+  "paddingX": {
+    "$type": "number",
+    "$value": 0
+  },
+  "paddingY": {
+    "$type": "number",
+    "$value": 0
+  },
+  "minHeight": {
+    "$type": "number",
+    "$value": 0
+  }
+}

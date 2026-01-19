@@ -1,0 +1,17 @@
+{
+  "tokenSetOrder": [
+    "Color/Default",
+    "Typography/Default",
+    "Spacing/Mode 1",
+    "Radius/Mode 1",
+    "Effects/Mode 1",
+    "Border Width/Mode 1",
+    "iOS Overrides/Light",
+    "iOS Overrides/Dark",
+    "Buttons/Mode 1",
+    "Semantic Tokens/Light Mode",
+    "Semantic Tokens/Dark Mode",
+    "Component Tokens/Light Mode",
+    "Component Tokens/Dark Mode"
+  ]
+}

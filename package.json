@@ -1,0 +1,30 @@
+{
+  "name": "figma-token-linter",
+  "version": "1.0.0",
+  "description": "Figma plugin to lint design token usage against Tokens Studio DTCG exports",
+  "main": "dist/plugin.js",
+  "scripts": {
+    "dev": "node esbuild.config.js --watch",
+    "build": "node esbuild.config.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "figma",
+    "plugin",
+    "design-tokens",
+    "linter",
+    "dtcg"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.100.0",
+    "@preact/preset-vite": "^2.9.0",
+    "esbuild": "^0.24.0",
+    "preact": "^10.24.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

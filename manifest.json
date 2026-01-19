@@ -1,0 +1,13 @@
+{
+  "name": "Design Token Linter",
+  "id": "design-token-linter",
+  "api": "1.0.0",
+  "main": "dist/plugin.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["https://atlanticwaters.github.io"]
+  },
+  "documentAccess": "dynamic-page",
+  "permissions": ["currentuser"]
+}

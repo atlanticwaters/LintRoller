@@ -1,0 +1,20 @@
+{
+  "Text": {
+    "Link": {
+      "$type": "color",
+      "$value": "{Text.On-Surface-Color.Informational}"
+    },
+    "Disabled": {
+      "$type": "color",
+      "$value": "{Text.On-Surface-Color.Inactive}"
+    },
+    "Destructive": {
+      "$type": "color",
+      "$value": "{Text.On-Surface-Color.Error}"
+    },
+    "Placeholder": {
+      "$type": "color",
+      "$value": "{Text.On-Surface-Color.Quatrenary}"
+    }
+  }
+}

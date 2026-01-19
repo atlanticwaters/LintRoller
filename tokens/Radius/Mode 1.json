@@ -1,0 +1,90 @@
+{
+  "Radius 0": {
+    "$type": "number",
+    "$value": 0
+  },
+  "Radius 1": {
+    "$type": "number",
+    "$value": 1
+  },
+  "Radius 2": {
+    "$type": "number",
+    "$value": 2
+  },
+  "Radius 3": {
+    "$type": "number",
+    "$value": 3
+  },
+  "Radius 4": {
+    "$type": "number",
+    "$value": 4
+  },
+  "Radius 5": {
+    "$type": "number",
+    "$value": 6
+  },
+  "Radius 6": {
+    "$type": "number",
+    "$value": 8
+  },
+  "Radius 7": {
+    "$type": "number",
+    "$value": 12
+  },
+  "Radius 8": {
+    "$type": "number",
+    "$value": 16
+  },
+  "Radius 9": {
+    "$type": "number",
+    "$value": 20
+  },
+  "Radius 10": {
+    "$type": "number",
+    "$value": 24
+  },
+  "Radius 11": {
+    "$type": "number",
+    "$value": 28
+  },
+  "Radius 12": {
+    "$type": "number",
+    "$value": 32
+  },
+  "Radius 13": {
+    "$type": "number",
+    "$value": 36
+  },
+  "Radius 14": {
+    "$type": "number",
+    "$value": 40
+  },
+  "Radius 15": {
+    "$type": "number",
+    "$value": 44
+  },
+  "Radius 16": {
+    "$type": "number",
+    "$value": 48
+  },
+  "Radius 17": {
+    "$type": "number",
+    "$value": 52
+  },
+  "Radius 18": {
+    "$type": "number",
+    "$value": 56
+  },
+  "Radius 19": {
+    "$type": "number",
+    "$value": 60
+  },
+  "Radius 20": {
+    "$type": "number",
+    "$value": 64
+  },
+  "Radius 999": {
+    "$type": "number",
+    "$value": 9999
+  }
+}

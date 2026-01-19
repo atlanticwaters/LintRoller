@@ -1,0 +1,340 @@
+/**
+ * Main Application Component
+ */
+
+import { useState, useEffect, useCallback } from 'preact/hooks';
+import type {
+  LintConfig,
+  LintResults,
+  LintViolation,
+  ScanScope,
+} from '../shared/types';
+import { getDefaultConfig } from '../shared/types';
+import type { PluginToUIMessage, UIToPluginMessage } from '../shared/messages';
+import { Header } from './components/Header';
+import { Summary } from './components/Summary';
+import { ProgressBar } from './components/ProgressBar';
+import { FixStatusBar } from './components/FixStatusBar';
+import { ResultsList } from './components/ResultsList';
+import { ConfigPanel } from './components/ConfigPanel';
+
+type View = 'results' | 'config';
+
+export function App() {
+  const [config, setConfig] = useState<LintConfig>(getDefaultConfig());
+  const [results, setResults] = useState<LintResults | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [isFixing, setIsFixing] = useState(false);
+  const [progress, setProgress] = useState({ processed: 0, total: 0 });
+  const [scope, setScope] = useState<ScanScope['type']>('current_page');
+  const [view, setView] = useState<View>('results');
+  const [groupBy, setGroupBy] = useState<'rule' | 'node'>('rule');
+  const [tokenCount, setTokenCount] = useState(0);
+  const [fixedViolations, setFixedViolations] = useState<Set<string>>(new Set());
+
+  // Send message to plugin
+  const postMessage = useCallback((message: UIToPluginMessage) => {
+    parent.postMessage({ pluginMessage: message }, '*');
+  }, []);
+
+  // Start a scan
+  const handleScan = useCallback(() => {
+    setIsScanning(true);
+    setResults(null);
+    postMessage({
+      type: 'START_SCAN',
+      scope: { type: scope },
+      config,
+    });
+  }, [scope, config, postMessage]);
+
+  // Handle messages from plugin
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const msg = event.data.pluginMessage as PluginToUIMessage;
+      if (!msg) return;
+
+      switch (msg.type) {
+        case 'SCAN_STARTED':
+          setProgress({ processed: 0, total: msg.totalNodes });
+          setFixedViolations(new Set()); // Reset fixed violations on new scan
+          break;
+
+        case 'SCAN_PROGRESS':
+          setProgress({ processed: msg.processed, total: msg.total });
+          break;
+
+        case 'SCAN_COMPLETE':
+          setResults(msg.results);
+          setIsScanning(false);
+          setView('results');
+          break;
+
+        case 'NODE_SELECTED':
+          // Could show feedback if selection failed
+          break;
+
+        case 'TOKENS_LOADED':
+          setTokenCount(msg.tokenCount);
+          break;
+
+        case 'FIX_APPLIED':
+          console.log('[UI] FIX_APPLIED received:', msg);
+          setIsFixing(false);
+          if (msg.success) {
+            // Mark this violation as fixed
+            setFixedViolations(prev => {
+              const next = new Set(prev);
+              // Create a unique key for this violation
+              const key = msg.nodeId + ':' + msg.property;
+              next.add(key);
+              return next;
+            });
+          } else {
+            // Always show error, even if message is undefined
+            const errorMsg = msg.message || 'Unknown error occurred';
+            console.error('Fix failed:', errorMsg);
+            alert('Fix failed: ' + errorMsg);
+          }
+          break;
+
+        case 'BULK_FIX_COMPLETE':
+          setIsFixing(false);
+          if (msg.failed > 0) {
+            console.error('Bulk fix errors:', msg.errors);
+            alert('Fixed ' + msg.successful + ' issues. ' + msg.failed + ' failed.\n\n' + msg.errors.slice(0, 3).join('\n'));
+          }
+          // Re-scan to update results
+          if (msg.successful > 0) {
+            handleScan();
+          }
+          break;
+
+        case 'BULK_DETACH_COMPLETE':
+          setIsFixing(false);
+          if (msg.failed > 0) {
+            console.error('Bulk detach errors:', msg.errors);
+            alert('Detached ' + msg.successful + ' styles. ' + msg.failed + ' failed.\n\n' + msg.errors.slice(0, 3).join('\n'));
+          }
+          // Re-scan to update results
+          if (msg.successful > 0) {
+            handleScan();
+          }
+          break;
+
+        case 'ERROR':
+          console.error('Plugin error:', msg.message);
+          setIsScanning(false);
+          setIsFixing(false);
+          break;
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [handleScan]);
+
+  // Select a node in Figma
+  const handleSelectNode = useCallback(
+    (nodeId: string) => {
+      postMessage({ type: 'SELECT_NODE', nodeId });
+    },
+    [postMessage]
+  );
+
+  // Apply a fix to a single violation
+  const handleFix = useCallback(
+    (violation: LintViolation) => {
+      if (!violation.suggestedToken) return;
+
+      setIsFixing(true);
+      postMessage({
+        type: 'APPLY_FIX',
+        nodeId: violation.nodeId,
+        property: violation.property,
+        tokenPath: violation.suggestedToken,
+        ruleId: violation.ruleId,
+      });
+    },
+    [postMessage]
+  );
+
+  // Apply fixes to multiple violations
+  const handleBulkFix = useCallback(
+    (violations: LintViolation[]) => {
+      const fixable = violations.filter(v => v.suggestedToken);
+      if (fixable.length === 0) return;
+
+      setIsFixing(true);
+      postMessage({
+        type: 'APPLY_BULK_FIX',
+        fixes: fixable.map(v => ({
+          nodeId: v.nodeId,
+          property: v.property,
+          tokenPath: v.suggestedToken!,
+          ruleId: v.ruleId,
+        })),
+      });
+    },
+    [postMessage]
+  );
+
+  // Unbind a variable from a node (for orphaned variables)
+  const handleUnbind = useCallback(
+    (violation: LintViolation) => {
+      setIsFixing(true);
+      postMessage({
+        type: 'UNBIND_VARIABLE',
+        nodeId: violation.nodeId,
+        property: violation.property,
+      });
+    },
+    [postMessage]
+  );
+
+  // Detach a style from a node (for unknown styles)
+  const handleDetach = useCallback(
+    (violation: LintViolation) => {
+      setIsFixing(true);
+      postMessage({
+        type: 'DETACH_STYLE',
+        nodeId: violation.nodeId,
+        property: violation.property,
+      });
+    },
+    [postMessage]
+  );
+
+  // Bulk detach styles from multiple nodes
+  const handleBulkDetach = useCallback(
+    (violations: LintViolation[]) => {
+      const detachable = violations.filter(v => v.canDetach);
+      if (detachable.length === 0) return;
+
+      setIsFixing(true);
+      postMessage({
+        type: 'BULK_DETACH_STYLES',
+        detaches: detachable.map(v => ({
+          nodeId: v.nodeId,
+          property: v.property,
+        })),
+      });
+    },
+    [postMessage]
+  );
+
+  // Export results
+  const handleExport = useCallback(
+    (format: 'json' | 'csv') => {
+      if (!results) return;
+
+      let content: string;
+      let filename: string;
+      let mimeType: string;
+
+      if (format === 'json') {
+        content = JSON.stringify(results, null, 2);
+        filename = 'lint-results.json';
+        mimeType = 'application/json';
+      } else {
+        // CSV export
+        const headers = [
+          'Rule',
+          'Severity',
+          'Node Name',
+          'Node Type',
+          'Layer Path',
+          'Property',
+          'Current Value',
+          'Message',
+          'Suggested Token',
+        ];
+        const rows = results.violations.map(v => [
+          v.ruleId,
+          v.severity,
+          v.nodeName,
+          v.nodeType,
+          v.layerPath,
+          v.property,
+          String(v.currentValue),
+          v.message,
+          v.suggestedToken || '',
+        ]);
+
+        content = [headers, ...rows].map(row => row.map(cell => '"' + cell.replace(/"/g, '""') + '"').join(',')).join('\n');
+        filename = 'lint-results.csv';
+        mimeType = 'text/csv';
+      }
+
+      // Create and trigger download
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+    [results]
+  );
+
+  // Update config
+  const handleConfigChange = useCallback((newConfig: LintConfig) => {
+    setConfig(newConfig);
+    postMessage({ type: 'UPDATE_CONFIG', config: newConfig });
+  }, [postMessage]);
+
+  // Count fixable violations
+  const fixableCount = results?.violations.filter(v => v.suggestedToken && !fixedViolations.has(v.nodeId + ':' + v.property)).length || 0;
+
+  return (
+    <div className="app">
+      <Header
+        onScan={handleScan}
+        isScanning={isScanning}
+        scope={scope}
+        onScopeChange={setScope}
+        onExport={handleExport}
+        hasResults={results !== null}
+        view={view}
+        onViewChange={setView}
+      />
+
+      {isScanning && <ProgressBar processed={progress.processed} total={progress.total} />}
+
+      {view === 'results' && (
+        <>
+          {results && <Summary results={results} />}
+
+          {results && results.violations.length > 0 && (
+            <FixStatusBar
+              violations={results.violations}
+              fixedViolations={fixedViolations}
+              isFixing={isFixing}
+              onFixAll={() => handleBulkFix(results.violations)}
+            />
+          )}
+
+          <ResultsList
+            results={results}
+            groupBy={groupBy}
+            onGroupByChange={setGroupBy}
+            onSelectNode={handleSelectNode}
+            onFix={handleFix}
+            onBulkFix={handleBulkFix}
+            onUnbind={handleUnbind}
+            onDetach={handleDetach}
+            onBulkDetach={handleBulkDetach}
+            fixedViolations={fixedViolations}
+            isFixing={isFixing}
+            fixableCount={fixableCount}
+          />
+        </>
+      )}
+
+      {view === 'config' && <ConfigPanel config={config} onChange={handleConfigChange} />}
+    </div>
+  );
+}

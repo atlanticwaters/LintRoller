@@ -1,0 +1,10 @@
+{
+  "Colors": {
+    "Accents": {
+      "Blue": {
+        "$type": "color",
+        "$value": "{brand.brand-400}"
+      }
+    }
+  }
+}

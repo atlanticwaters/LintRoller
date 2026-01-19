@@ -1,0 +1,807 @@
+/* Design Token Linter - Main Styles (Light Mode Only) */
+
+:root {
+  /* Light mode colors */
+  --figma-color-bg: #f5f5f5;
+  --figma-color-bg-secondary: #ffffff;
+  --figma-color-text: #333333;
+  --figma-color-text-secondary: #666666;
+  --figma-color-text-tertiary: #999999;
+  --figma-color-border: #e5e5e5;
+  --figma-color-icon: #333333;
+
+  /* Severity colors */
+  --color-error: #dc3545;
+  --color-error-bg: #fdf2f2;
+  --color-warning: #f59e0b;
+  --color-warning-bg: #fffbeb;
+  --color-info: #3b82f6;
+  --color-info-bg: #eff6ff;
+  --color-success: #10b981;
+  --color-success-bg: #ecfdf5;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+
+  /* Font sizes */
+  --font-size-xs: 10px;
+  --font-size-sm: 11px;
+  --font-size-md: 12px;
+  --font-size-lg: 14px;
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  color: var(--figma-color-text);
+  background-color: var(--figma-color-bg);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Header */
+.header {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--figma-color-border);
+  background-color: var(--figma-color-bg-secondary);
+}
+
+.header h1 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+}
+
+.header-controls {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-primary {
+  background-color: #18a0fb;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #0d8de8;
+}
+
+.btn-primary:disabled {
+  background-color: #b3b3b3;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: var(--figma-color-bg);
+  color: var(--figma-color-text);
+  border: 1px solid var(--figma-color-border);
+}
+
+.btn-secondary:hover {
+  background-color: var(--figma-color-border);
+}
+
+.btn-icon {
+  padding: var(--space-xs);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--figma-color-icon);
+  border-radius: var(--radius-sm);
+}
+
+.btn-icon:hover {
+  background-color: var(--figma-color-bg);
+}
+
+/* Fix buttons */
+.btn-fix {
+  background-color: var(--color-success);
+  color: white;
+  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.btn-fix:hover {
+  background-color: #0d9668;
+}
+
+.btn-fix:disabled {
+  background-color: var(--figma-color-border);
+  cursor: not-allowed;
+}
+
+.btn-fix-all {
+  background-color: var(--color-success);
+  color: white;
+  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.btn-fix-all:hover {
+  background-color: #0d9668;
+}
+
+.btn-fix-all:disabled {
+  background-color: var(--figma-color-border);
+  cursor: not-allowed;
+}
+
+.btn-fix-group {
+  background-color: transparent;
+  color: var(--color-success);
+  font-size: var(--font-size-xs);
+  padding: 2px 6px;
+  border: 1px solid var(--color-success);
+}
+
+.btn-fix-group:hover {
+  background-color: var(--color-success-bg);
+}
+
+.btn-fix-group:disabled {
+  color: var(--figma-color-border);
+  border-color: var(--figma-color-border);
+  cursor: not-allowed;
+}
+
+/* Unbind button */
+.btn-unbind {
+  background-color: var(--color-warning);
+  color: white;
+  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.btn-unbind:hover {
+  background-color: #d97706;
+}
+
+.btn-unbind:disabled {
+  background-color: var(--figma-color-border);
+  cursor: not-allowed;
+}
+
+/* Detach button */
+.btn-detach,
+.btn-detach-group {
+  background-color: #8b5cf6;
+  color: white;
+  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.btn-detach:hover,
+.btn-detach-group:hover {
+  background-color: #7c3aed;
+}
+
+.btn-detach:disabled,
+.btn-detach-group:disabled {
+  background-color: var(--figma-color-border);
+  cursor: not-allowed;
+}
+
+/* Select dropdown */
+.select {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--figma-color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--figma-color-bg-secondary);
+  color: var(--figma-color-text);
+  cursor: pointer;
+}
+
+/* Summary cards */
+.summary {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--figma-color-border);
+  background-color: var(--figma-color-bg-secondary);
+}
+
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.stat-card {
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  text-align: center;
+  background-color: var(--figma-color-bg);
+}
+
+.stat-card.error {
+  background-color: var(--color-error-bg);
+}
+
+.stat-card.warning {
+  background-color: var(--color-warning-bg);
+}
+
+.stat-card.success {
+  background-color: var(--color-success-bg);
+}
+
+.stat-card .value {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.stat-card .label {
+  font-size: var(--font-size-xs);
+  color: var(--figma-color-text-secondary);
+}
+
+/* Progress bar */
+.progress-container {
+  padding: var(--space-md) var(--space-lg);
+  background-color: var(--figma-color-bg-secondary);
+  border-bottom: 1px solid var(--figma-color-border);
+}
+
+.progress-bar {
+  height: 4px;
+  background-color: var(--figma-color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar .fill {
+  height: 100%;
+  background-color: #18a0fb;
+  transition: width 0.2s ease;
+}
+
+.progress-text {
+  font-size: var(--font-size-xs);
+  color: var(--figma-color-text-secondary);
+  margin-top: var(--space-xs);
+}
+
+/* Results list */
+.results-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-sm);
+}
+
+.results-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--figma-color-text-secondary);
+  text-align: center;
+  padding: var(--space-xl);
+}
+
+.results-empty-icon {
+  font-size: 48px;
+  margin-bottom: var(--space-md);
+  opacity: 0.5;
+}
+
+.results-group {
+  margin-bottom: var(--space-md);
+}
+
+.results-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--figma-color-bg);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 500;
+  font-size: var(--font-size-sm);
+}
+
+.results-group-header:hover {
+  background-color: var(--figma-color-border);
+}
+
+.results-group-count {
+  background-color: var(--figma-color-text-tertiary);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: var(--font-size-xs);
+}
+
+.results-group-items {
+  margin-top: var(--space-xs);
+}
+
+/* Result item */
+.result-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.result-item:hover {
+  background-color: var(--figma-color-bg);
+}
+
+.result-item .severity-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.result-item.error .severity-indicator {
+  background-color: var(--color-error);
+}
+
+.result-item.warning .severity-indicator {
+  background-color: var(--color-warning);
+}
+
+.result-item.info .severity-indicator {
+  background-color: var(--color-info);
+}
+
+.result-item .content {
+  flex: 1;
+  min-width: 0;
+}
+
+.result-item .node-info {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.result-item .node-name {
+  font-weight: 500;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-item .node-type {
+  font-size: var(--font-size-xs);
+  color: var(--figma-color-text-tertiary);
+  background-color: var(--figma-color-bg);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.result-item .message {
+  font-size: var(--font-size-sm);
+  color: var(--figma-color-text-secondary);
+  line-height: 1.4;
+}
+
+.result-item .suggestion {
+  font-size: var(--font-size-xs);
+  color: var(--color-success);
+  margin-top: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.result-item .suggestion code {
+  background-color: var(--color-success-bg);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.result-item .suggestion.confidence-close {
+  color: var(--color-warning);
+}
+
+.result-item .suggestion.confidence-close code {
+  background-color: var(--color-warning-bg);
+}
+
+.result-item .suggestion.confidence-approximate {
+  color: var(--figma-color-text-secondary);
+}
+
+.result-item .suggestion.confidence-approximate code {
+  background-color: var(--figma-color-bg);
+}
+
+.confidence-badge {
+  font-size: 9px;
+  font-weight: 500;
+  padding: 1px 4px;
+  border-radius: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.confidence-badge.confidence-exact {
+  background-color: var(--color-success);
+  color: white;
+}
+
+.confidence-badge.confidence-close {
+  background-color: var(--color-warning);
+  color: white;
+}
+
+.confidence-badge.confidence-approximate {
+  background-color: var(--figma-color-text-tertiary);
+  color: white;
+}
+
+.alternatives-toggle {
+  font-size: var(--font-size-xs);
+  color: var(--color-info);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.alternatives-toggle:hover {
+  color: var(--figma-color-text);
+}
+
+.alternatives-list {
+  margin-top: var(--space-xs);
+  padding-left: var(--space-md);
+  border-left: 2px solid var(--figma-color-border);
+}
+
+.alternative-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-xs) 0;
+  font-size: var(--font-size-xs);
+}
+
+.alternative-item code {
+  background-color: var(--figma-color-bg);
+  padding: 1px 4px;
+  border-radius: 2px;
+  color: var(--figma-color-text);
+}
+
+.alternative-distance {
+  color: var(--figma-color-text-tertiary);
+}
+
+.result-item-actions {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.result-item:hover .result-item-actions {
+  opacity: 1;
+}
+
+.result-item .select-btn {
+  flex-shrink: 0;
+}
+
+/* Fixed state */
+.result-item.fixed {
+  opacity: 0.6;
+}
+
+.result-item.fixed .severity-indicator {
+  background-color: var(--color-success);
+}
+
+.fixed-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 500;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background-color: var(--color-success);
+  color: white;
+  margin-right: var(--space-xs);
+  text-transform: uppercase;
+}
+
+/* Fix Status Bar */
+.fix-status-bar {
+  padding: var(--space-sm) var(--space-lg);
+  background-color: var(--figma-color-bg-secondary);
+  border-bottom: 1px solid var(--figma-color-border);
+}
+
+.fix-status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.fix-status-title {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--figma-color-text);
+}
+
+.fix-progress-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--figma-color-border);
+  margin-bottom: var(--space-sm);
+}
+
+.fix-progress-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.fix-progress-segment.fixed {
+  background-color: var(--color-success);
+}
+
+.fix-progress-segment.fixable {
+  background-color: var(--color-info);
+}
+
+.fix-progress-segment.unfixable {
+  background-color: var(--figma-color-text-tertiary);
+}
+
+.fix-status-legend {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.fix-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-xs);
+  color: var(--figma-color-text-secondary);
+}
+
+.fix-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.fix-legend-dot.fixed {
+  background-color: var(--color-success);
+}
+
+.fix-legend-dot.fixable {
+  background-color: var(--color-info);
+}
+
+.fix-legend-dot.unfixable {
+  background-color: var(--figma-color-text-tertiary);
+}
+
+/* Config panel */
+.config-panel {
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--figma-color-border);
+  background-color: var(--figma-color-bg-secondary);
+}
+
+.config-section {
+  margin-bottom: var(--space-md);
+}
+
+.config-section:last-child {
+  margin-bottom: 0;
+}
+
+.config-section h3 {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  margin-bottom: var(--space-sm);
+  color: var(--figma-color-text-secondary);
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-xs) 0;
+}
+
+.config-row label {
+  font-size: var(--font-size-sm);
+}
+
+/* Toggle switch */
+.toggle {
+  position: relative;
+  width: 32px;
+  height: 18px;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle .slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--figma-color-border);
+  border-radius: 9px;
+  transition: background-color 0.2s ease;
+}
+
+.toggle .slider:before {
+  position: absolute;
+  content: '';
+  height: 14px;
+  width: 14px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.toggle input:checked + .slider {
+  background-color: #18a0fb;
+}
+
+.toggle input:checked + .slider:before {
+  transform: translateX(14px);
+}
+
+/* Results toolbar */
+.results-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: var(--space-md);
+  border-bottom: 1px solid var(--figma-color-border);
+  background-color: var(--figma-color-bg-secondary);
+}
+
+.results-group-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+}
+
+.tab {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--figma-color-text-secondary);
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--figma-color-text);
+}
+
+.tab.active {
+  color: #18a0fb;
+  border-bottom-color: #18a0fb;
+}
+
+/* Export menu */
+.export-menu {
+  position: relative;
+}
+
+.export-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: var(--space-xs);
+  background-color: var(--figma-color-bg-secondary);
+  border: 1px solid var(--figma-color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  min-width: 120px;
+}
+
+.export-dropdown button {
+  display: block;
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  font-size: var(--font-size-sm);
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.export-dropdown button:hover {
+  background-color: var(--figma-color-bg);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--figma-color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--figma-color-text-tertiary);
+}
