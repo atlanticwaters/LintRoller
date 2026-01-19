@@ -30,7 +30,7 @@ export function Header({
 
   return (
     <header className="header">
-      <h1>Design Token Linter</h1>
+      <h1>Lint Roller</h1>
 
       <div className="header-controls">
         <select

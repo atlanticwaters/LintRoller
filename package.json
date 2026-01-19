@@ -1,7 +1,7 @@
 {
-  "name": "figma-token-linter",
+  "name": "lint-roller",
   "version": "1.0.0",
-  "description": "Figma plugin to lint design token usage against Tokens Studio DTCG exports",
+  "description": "Lint Roller - A Figma plugin to lint design token usage against Tokens Studio DTCG exports",
   "main": "dist/plugin.js",
   "scripts": {
     "dev": "node esbuild.config.js --watch",
