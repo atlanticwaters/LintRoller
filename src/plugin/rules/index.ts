@@ -24,12 +24,17 @@ export { NoUnknownStylesRule } from './no-unknown-styles';
 
 /**
  * Create all enabled lint rules
+ *
+ * @param config - Lint configuration
+ * @param tokens - Parsed token collection
+ * @param figmaVariables - Map of Figma variable IDs to variable info
+ * @param matchedVariableIds - Set of variable IDs that have matching tokens (using normalized path comparison)
  */
 export function createRules(
   config: LintConfig,
   tokens: TokenCollection,
   figmaVariables: Map<string, VariableInfo>,
-  tokenVariableIds: Set<string>
+  matchedVariableIds: Set<string>
 ): LintRule[] {
   const rules: LintRule[] = [];
 
@@ -60,7 +65,7 @@ export function createRules(
         config.rules['no-orphaned-variables'],
         tokens,
         figmaVariables,
-        tokenVariableIds
+        matchedVariableIds
       )
     );
   }

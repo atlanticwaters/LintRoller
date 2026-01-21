@@ -21,7 +21,7 @@ import { TokenParser } from '../shared/token-parser';
 import { FigmaScanner, processInChunks } from './scanner';
 import { PropertyInspector } from './inspector';
 import { createRules } from './rules';
-import { getLocalVariables, buildTokenVariableIdSet } from './variables';
+import { getLocalVariables, buildMatchedVariableIdSet } from './variables';
 import { loadAllTokenData } from './tokens-data';
 import { applyFix, applyBulkFix, unbindVariable, detachStyle, bulkDetachStyles } from './fixer';
 
@@ -137,10 +137,13 @@ async function handleStartScan(scope: ScanScope, config: LintConfig): Promise<vo
 
     // Load Figma variables for orphan detection
     const figmaVariables = await getLocalVariables();
-    const tokenVariableIds = buildTokenVariableIdSet(loadedThemeConfigs);
+
+    // Build set of variable IDs that have matching tokens (using normalized path comparison)
+    const matchedVariableIds = buildMatchedVariableIdSet(figmaVariables, tokenCollection);
+    console.log(`Found ${matchedVariableIds.size} variables with matching tokens out of ${figmaVariables.size} total`);
 
     // Create rules
-    const rules = createRules(config, tokenCollection, figmaVariables, tokenVariableIds);
+    const rules = createRules(config, tokenCollection, figmaVariables, matchedVariableIds);
 
     // Gather nodes
     const nodes = await scanner.gatherNodes(scope);

@@ -3,10 +3,12 @@
  *
  * Flags nodes bound to variables that don't exist in the token set.
  * Now supports suggesting replacement tokens based on the resolved value.
+ * Uses normalized path comparison to match variable names to token paths.
  */
 
 import type { LintViolation, PropertyInspection, RuleConfig, TokenCollection, MatchConfidence, TokenSuggestion } from '../../shared/types';
 import type { VariableInfo } from '../variables';
+import { getTokenPathForVariable } from '../variables';
 import { LintRule } from './base';
 import { findClosestColors, getDeltaEDescription } from '../../shared/color-distance';
 import { rgbToHex } from '../inspector';
@@ -31,18 +33,18 @@ export class NoOrphanedVariablesRule extends LintRule {
   /** Map of Figma variable IDs to variable info */
   private figmaVariables: Map<string, VariableInfo>;
 
-  /** Set of variable IDs that exist in the token set */
-  private tokenVariableIds: Set<string>;
+  /** Set of variable IDs that have matching tokens (using normalized path comparison) */
+  private matchedVariableIds: Set<string>;
 
   constructor(
     config: RuleConfig,
     tokens: TokenCollection,
     figmaVariables: Map<string, VariableInfo>,
-    tokenVariableIds: Set<string>
+    matchedVariableIds: Set<string>
   ) {
     super(config, tokens);
     this.figmaVariables = figmaVariables;
-    this.tokenVariableIds = tokenVariableIds;
+    this.matchedVariableIds = matchedVariableIds;
   }
 
   /**
@@ -69,8 +71,17 @@ export class NoOrphanedVariablesRule extends LintRule {
         );
         violation.canUnbind = true;
         violations.push(violation);
-      } else if (this.tokenVariableIds.size > 0 && !this.tokenVariableIds.has(inspection.boundVariableId)) {
-        // Variable exists but not in token set
+      } else if (this.matchedVariableIds.size > 0 && !this.matchedVariableIds.has(inspection.boundVariableId)) {
+        // Variable exists but no matching token found (using normalized path comparison)
+        // Check if we can find a matching token path directly
+        const matchedTokenPath = getTokenPathForVariable(variableInfo, this.tokens);
+
+        if (matchedTokenPath) {
+          // Found a match via normalized comparison - this shouldn't be flagged
+          // This is a safety check in case matchedVariableIds wasn't built correctly
+          continue;
+        }
+
         // Try to get the resolved value and suggest a replacement token
         const suggestion = await this.findReplacementToken(
           inspection.boundVariableId,

@@ -5,6 +5,7 @@
  */
 
 import type { LintRuleId, ThemeConfig } from '../shared/types';
+import { normalizePath, pathEndsWith, pathContains } from '../shared/path-utils';
 
 /**
  * Result of applying a fix
@@ -12,17 +13,6 @@ import type { LintRuleId, ThemeConfig } from '../shared/types';
 export interface FixResult {
   success: boolean;
   message?: string;
-}
-
-/**
- * Normalize a path for comparison
- */
-function normalizePath(path: string): string {
-  return path
-    .toLowerCase()
-    .replace(/\./g, '/')
-    .replace(/\s+/g, '-')
-    .replace(/^\/+|\/+$/g, ''); // trim leading/trailing slashes
 }
 
 /**
@@ -67,13 +57,13 @@ async function findVariableForToken(
     }
 
     // Check if token path ends with variable name (for nested tokens)
-    if (normalizedTokenPath.endsWith('/' + normalizedVarName)) {
+    if (pathEndsWith(tokenPath, variable.name)) {
       console.log('[Fixer] Found partial match (token ends with var):', variable.name);
       return variable;
     }
 
     // Check if variable name ends with token path
-    if (normalizedVarName.endsWith('/' + normalizedTokenPath)) {
+    if (pathEndsWith(variable.name, tokenPath)) {
       console.log('[Fixer] Found partial match (var ends with token):', variable.name);
       return variable;
     }
@@ -85,7 +75,7 @@ async function findVariableForToken(
     }
 
     // Check if variable name contains the token path
-    if (normalizedVarName.includes(normalizedTokenPath)) {
+    if (pathContains(variable.name, tokenPath)) {
       console.log('[Fixer] Found contains match:', variable.name);
       return variable;
     }

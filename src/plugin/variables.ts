@@ -4,7 +4,8 @@
  * Query and manage Figma variables for orphan detection.
  */
 
-import type { ThemeConfig } from '../shared/types';
+import type { ThemeConfig, TokenCollection } from '../shared/types';
+import { normalizePath, findMatchingTokenPath } from '../shared/path-utils';
 
 /**
  * Variable information
@@ -113,30 +114,58 @@ export function buildVariableNameToTokenPathMap(
 ): Map<string, string> {
   const map = new Map<string, string>();
 
-  // Build a lookup of normalized token paths
-  const normalizedTokens = new Map<string, string>();
-  for (const path of tokenPaths) {
-    // Normalize: lowercase, remove spaces, replace dots with slashes
-    const normalized = path.toLowerCase().replace(/\s+/g, '-').replace(/\./g, '/');
-    normalizedTokens.set(normalized, path);
-  }
-
   for (const variable of variables.values()) {
-    // Try to match variable name to token path
-    const normalizedName = variable.name.toLowerCase().replace(/\s+/g, '-').replace(/\./g, '/');
+    const matchedPath = findMatchingTokenPath(
+      variable.name,
+      tokenPaths,
+      variable.collectionName
+    );
 
-    // Direct match
-    if (normalizedTokens.has(normalizedName)) {
-      map.set(variable.id, normalizedTokens.get(normalizedName)!);
-      continue;
-    }
-
-    // Try with collection name prefix
-    const withCollection = `${variable.collectionName}/${normalizedName}`.toLowerCase().replace(/\s+/g, '-');
-    if (normalizedTokens.has(withCollection)) {
-      map.set(variable.id, normalizedTokens.get(withCollection)!);
+    if (matchedPath) {
+      map.set(variable.id, matchedPath);
     }
   }
 
   return map;
+}
+
+/**
+ * Build a set of Figma variable IDs that have matching tokens
+ * Uses normalized path comparison to match variable names to token paths
+ */
+export function buildMatchedVariableIdSet(
+  variables: Map<string, VariableInfo>,
+  tokens: TokenCollection
+): Set<string> {
+  const tokenPaths = Array.from(tokens.tokens.keys());
+  const matchedIds = new Set<string>();
+
+  for (const variable of variables.values()) {
+    const matchedPath = findMatchingTokenPath(
+      variable.name,
+      tokenPaths,
+      variable.collectionName
+    );
+
+    if (matchedPath) {
+      matchedIds.add(variable.id);
+    }
+  }
+
+  return matchedIds;
+}
+
+/**
+ * Get the matching token path for a variable, if one exists
+ */
+export function getTokenPathForVariable(
+  variable: VariableInfo,
+  tokens: TokenCollection
+): string | undefined {
+  const tokenPaths = Array.from(tokens.tokens.keys());
+  return findMatchingTokenPath(
+    variable.name,
+    tokenPaths,
+    variable.collectionName
+  );
 }

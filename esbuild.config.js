@@ -50,6 +50,40 @@ const uiBuildOptions = {
   }
 };
 
+// Function to copy distribution files to _Figma Plugin/Lint Roller
+function copyDistributionFiles() {
+  const distDir = path.join('_Figma Plugin', 'Lint Roller');
+  const distDistDir = path.join(distDir, 'dist');
+
+  // Create directories if they don't exist
+  if (!fs.existsSync(distDir)) {
+    fs.mkdirSync(distDir, { recursive: true });
+  }
+  if (!fs.existsSync(distDistDir)) {
+    fs.mkdirSync(distDistDir, { recursive: true });
+  }
+
+  // Copy manifest.json
+  fs.copyFileSync('manifest.json', path.join(distDir, 'manifest.json'));
+  console.log('Copied manifest.json');
+
+  // Copy dist/plugin.js
+  fs.copyFileSync('dist/plugin.js', path.join(distDistDir, 'plugin.js'));
+  console.log('Copied dist/plugin.js');
+
+  // Copy dist/ui.html
+  fs.copyFileSync('dist/ui.html', path.join(distDistDir, 'ui.html'));
+  console.log('Copied dist/ui.html');
+
+  // Copy README.md
+  if (fs.existsSync('README.md')) {
+    fs.copyFileSync('README.md', path.join(distDir, 'README.md'));
+    console.log('Copied README.md');
+  }
+
+  console.log(`Distribution files copied to "${distDir}"`);
+}
+
 // Function to build the UI HTML with inlined JS and CSS
 function buildUIHtml() {
   const htmlTemplate = fs.readFileSync('src/ui/index.html', 'utf-8');
@@ -90,6 +124,9 @@ async function build() {
     if (fs.existsSync('dist/ui.js')) {
       fs.unlinkSync('dist/ui.js');
     }
+
+    // Copy distribution files to _Figma Plugin/Lint Roller
+    copyDistributionFiles();
 
     console.log('Build complete!');
   } catch (error) {
