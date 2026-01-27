@@ -6,7 +6,10 @@
   "ui": "dist/ui.html",
   "editorType": ["figma"],
   "networkAccess": {
-    "allowedDomains": ["https://atlanticwaters.github.io"]
+    "allowedDomains": [
+      "https://atlanticwaters.github.io",
+      "https://raw.githubusercontent.com"
+    ]
   },
   "documentAccess": "dynamic-page",
   "permissions": ["currentuser"]

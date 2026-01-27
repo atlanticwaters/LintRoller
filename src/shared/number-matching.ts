@@ -15,6 +15,14 @@ export interface NumberMatch {
   isExact: boolean;
 }
 
+/** Tolerance thresholds for "close" matches */
+const CLOSE_TOLERANCE_PERCENT = 0.25; // 25%
+const CLOSE_TOLERANCE_ABSOLUTE = 4; // 4px
+
+/** Maximum tolerance to include in results (always show closest options) */
+const MAX_TOLERANCE_PERCENT = 1.0; // 100%
+const MAX_TOLERANCE_ABSOLUTE = 20; // 20px
+
 /**
  * Find closest matching number tokens for a given value
  *
@@ -22,16 +30,16 @@ export interface NumberMatch {
  * @param numberTokens - Map of values to token paths
  * @param preferredKeywords - Keywords to prioritize in token names (e.g., ['spacing', 'gap'])
  * @param maxResults - Maximum number of results to return (default: 5)
- * @param tolerance - Maximum percentage difference (default: 0.25 = 25%)
- * @param absoluteTolerance - Maximum absolute difference in px (default: 4)
+ * @param tolerance - Maximum percentage difference for "close" matches (default: 0.25 = 25%)
+ * @param absoluteTolerance - Maximum absolute difference in px for "close" matches (default: 4)
  */
 export function findClosestNumbers(
   targetValue: number,
   numberTokens: Map<number, string[]>,
   preferredKeywords: string[] = [],
   maxResults: number = 5,
-  tolerance: number = 0.25,
-  absoluteTolerance: number = 4
+  tolerance: number = CLOSE_TOLERANCE_PERCENT,
+  absoluteTolerance: number = CLOSE_TOLERANCE_ABSOLUTE
 ): NumberMatch[] {
   const matches: NumberMatch[] = [];
 
@@ -40,11 +48,11 @@ export function findClosestNumbers(
     const percentDiff = targetValue !== 0 ? difference / targetValue : tokenValue !== 0 ? 1 : 0;
     const isExact = difference === 0;
 
-    // Include if within tolerance (percentage or absolute)
-    const withinPercentTolerance = percentDiff <= tolerance;
-    const withinAbsoluteTolerance = difference <= absoluteTolerance;
+    // Always include if within expanded tolerance (to ensure we always have suggestions)
+    const withinExpandedPercent = percentDiff <= MAX_TOLERANCE_PERCENT;
+    const withinExpandedAbsolute = difference <= MAX_TOLERANCE_ABSOLUTE;
 
-    if (isExact || withinPercentTolerance || withinAbsoluteTolerance) {
+    if (isExact || withinExpandedPercent || withinExpandedAbsolute) {
       // Add all paths for this value
       for (const path of paths) {
         matches.push({
@@ -69,6 +77,12 @@ export function findClosestNumbers(
       return a.difference - b.difference;
     }
 
+    // Prefer semantic tokens (system.*, component.*) over core tokens
+    const aIsSemantic = isSemanticTokenPath(a.tokenPath);
+    const bIsSemantic = isSemanticTokenPath(b.tokenPath);
+    if (aIsSemantic && !bIsSemantic) return -1;
+    if (!aIsSemantic && bIsSemantic) return 1;
+
     // If same difference, prefer tokens with preferred keywords
     if (preferredKeywords.length > 0) {
       const aHasKeyword = hasPreferredKeyword(a.tokenPath, preferredKeywords);
@@ -89,6 +103,13 @@ export function findClosestNumbers(
 function hasPreferredKeyword(path: string, keywords: string[]): boolean {
   const lowerPath = path.toLowerCase();
   return keywords.some(kw => lowerPath.includes(kw.toLowerCase()));
+}
+
+/**
+ * Check if a token path is a semantic token (should be preferred for suggestions)
+ */
+function isSemanticTokenPath(path: string): boolean {
+  return path.startsWith('system.') || path.startsWith('component.');
 }
 
 /**

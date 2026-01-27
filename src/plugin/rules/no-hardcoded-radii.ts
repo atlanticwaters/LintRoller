@@ -72,10 +72,10 @@ export class NoHardcodedRadiiRule extends LintRule {
         const bestMatch = matches[0];
         suggestedToken = bestMatch.tokenPath;
 
-        // Determine confidence level
+        // Determine confidence level based on how close the match is
         if (bestMatch.isExact) {
           suggestionConfidence = 'exact';
-        } else if (bestMatch.difference <= 1) {
+        } else if (bestMatch.difference <= 1 || bestMatch.percentDifference <= 0.05) {
           suggestionConfidence = 'close';
         } else {
           suggestionConfidence = 'approximate';
@@ -94,10 +94,16 @@ export class NoHardcodedRadiiRule extends LintRule {
 
       // Create message with match info
       const propName = this.formatPropertyName(inspection.property);
-      let message = 'Hardcoded ' + propName + ' value ' + value + 'px - should use a design token';
-      if (suggestedToken && suggestionConfidence !== 'exact') {
-        const bestMatch = matches[0];
-        message = 'Hardcoded ' + propName + ' value ' + value + 'px - closest token: ' + suggestedToken + ' (' + getNumberMatchDescription(bestMatch) + ')';
+      let message: string;
+      if (suggestedToken) {
+        if (suggestionConfidence === 'exact') {
+          message = 'Hardcoded ' + propName + ' value ' + value + 'px - exact match available: ' + suggestedToken;
+        } else {
+          const bestMatch = matches[0];
+          message = 'Hardcoded ' + propName + ' value ' + value + 'px - closest token: ' + suggestedToken + ' (' + getNumberMatchDescription(bestMatch) + ')';
+        }
+      } else {
+        message = 'Hardcoded ' + propName + ' value ' + value + 'px - should use a design token';
       }
 
       const violation = this.createViolation(

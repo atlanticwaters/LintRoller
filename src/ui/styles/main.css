@@ -60,6 +60,14 @@ body {
   overflow: hidden;
 }
 
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0; /* Critical for flex children to shrink and enable scrolling */
+  overflow: hidden;
+}
+
 /* Header */
 .header {
   padding: var(--space-md) var(--space-lg);
@@ -335,13 +343,32 @@ body {
   padding: var(--space-sm) var(--space-md);
   background-color: var(--figma-color-bg);
   border-radius: var(--radius-sm);
+  border: 1px solid var(--figma-color-border);
   cursor: pointer;
   font-weight: 500;
   font-size: var(--font-size-sm);
 }
 
 .results-group-header:hover {
-  background-color: var(--figma-color-border);
+  background-color: var(--figma-color-bg-secondary);
+  border-color: var(--figma-color-text-tertiary);
+}
+
+.results-group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.results-group-caret {
+  display: inline-block;
+  font-size: 10px;
+  transition: transform 0.15s ease;
+  color: var(--figma-color-text-tertiary);
+}
+
+.results-group-caret.expanded {
+  transform: rotate(90deg);
 }
 
 .results-group-count {

@@ -169,8 +169,9 @@ export function ResultsList({
           return (
             <div key={key} className="results-group">
               <div className="results-group-header" onClick={() => toggleGroup(key)}>
-                <span>
-                  {isExpanded ? '>' : '>'} {groupName}
+                <span className="results-group-title">
+                  <span className={'results-group-caret' + (isExpanded ? ' expanded' : '')}>&#9654;</span>
+                  {groupName}
                 </span>
                 <div className="results-group-actions">
                   {fixableInGroup.length > 0 && (

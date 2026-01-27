@@ -247,7 +247,28 @@ export class TokenParser {
   }
 
   /**
+   * Check if a token is a semantic token (should be preferred for suggestions)
+   * Semantic tokens are those that reference core tokens and provide contextual meaning
+   */
+  private isSemanticToken(token: ResolvedToken): boolean {
+    // Check if source file is from semantic folder
+    if (token.sourceFile?.includes('semantic')) {
+      return true;
+    }
+    // Check if path indicates a semantic token (e.g., "system.icon.on-surface-color...")
+    if (token.path.startsWith('system.') || token.path.startsWith('component.')) {
+      return true;
+    }
+    // Semantic tokens are typically aliases that reference other tokens
+    if (token.isAlias && token.aliasPath) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Build the final TokenCollection with lookup indexes
+   * Prioritizes semantic tokens over core tokens for suggestions
    */
   private buildCollection(): TokenCollection {
     const tokens = new Map(this.resolvedTokens);
@@ -256,31 +277,50 @@ export class TokenParser {
     const numberValues = new Map<number, string[]>();
     const colorLab = new Map<string, LAB>();
 
+    // Track whether we've stored a semantic token for each hex
+    const colorIsSemanticMap = new Map<string, boolean>();
+
     for (const token of tokens.values()) {
       // Index by type
       const typeList = byType.get(token.type) || [];
       typeList.push(token);
       byType.set(token.type, typeList);
 
-      // Index color values by hex
+      // Index color values by hex - prefer semantic tokens over core tokens
       if (token.type === 'color' && typeof token.resolvedValue === 'string') {
         const hex = token.resolvedValue.toLowerCase();
         // Only index if it's a valid hex color (not gradient)
-        if (hex.startsWith('#') && !colorValues.has(hex)) {
-          colorValues.set(hex, token.path);
+        if (hex.startsWith('#')) {
+          const isSemantic = this.isSemanticToken(token);
+          const existingIsSemantic = colorIsSemanticMap.get(hex) || false;
 
-          // Pre-compute LAB value for Delta E calculations
-          const lab = hexToLab(hex);
-          if (lab) {
-            colorLab.set(hex, lab);
+          // Store this token if:
+          // 1. No token stored yet for this hex, OR
+          // 2. This is a semantic token and the existing one is not
+          if (!colorValues.has(hex) || (isSemantic && !existingIsSemantic)) {
+            colorValues.set(hex, token.path);
+            colorIsSemanticMap.set(hex, isSemantic);
+
+            // Pre-compute LAB value for Delta E calculations
+            const lab = hexToLab(hex);
+            if (lab) {
+              colorLab.set(hex, lab);
+            }
           }
         }
       }
 
-      // Index number values
+      // Index number values - prefer semantic tokens
       if ((token.type === 'number' || token.type === 'dimension') && typeof token.resolvedValue === 'number') {
         const list = numberValues.get(token.resolvedValue) || [];
-        list.push(token.path);
+        const isSemantic = this.isSemanticToken(token);
+
+        // Add semantic tokens to front, core tokens to back
+        if (isSemantic) {
+          list.unshift(token.path);
+        } else {
+          list.push(token.path);
+        }
         numberValues.set(token.resolvedValue, list);
       }
     }

@@ -93,6 +93,15 @@ export interface AutoFixPathMismatchesMessage {
   }>;
 }
 
+/** Message sent from UI to plugin with loaded token files */
+export interface TokenFilesLoadedMessage {
+  type: 'TOKEN_FILES_LOADED';
+  files: Array<{
+    path: string;
+    content: Record<string, unknown>;
+  }>;
+}
+
 export type UIToPluginMessage =
   | StartScanMessage
   | SelectNodeMessage
@@ -104,7 +113,8 @@ export type UIToPluginMessage =
   | UnbindVariableMessage
   | DetachStyleMessage
   | BulkDetachStylesMessage
-  | AutoFixPathMismatchesMessage;
+  | AutoFixPathMismatchesMessage
+  | TokenFilesLoadedMessage;
 
 // Messages from Plugin to UI
 

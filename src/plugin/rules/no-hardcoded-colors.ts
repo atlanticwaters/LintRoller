@@ -18,8 +18,11 @@ interface RGB {
   b: number;
 }
 
-/** Maximum Delta E for suggestions (colors within this range will be suggested) */
-const MAX_DELTA_E = 10;
+/** Maximum Delta E for "close" suggestions (colors within this range are good matches) */
+const CLOSE_DELTA_E = 10;
+
+/** Maximum Delta E for any suggestions (always show something if available) */
+const MAX_DELTA_E = 50;
 
 /** Maximum number of alternative suggestions to include */
 const MAX_ALTERNATIVES = 3;
@@ -77,12 +80,15 @@ export class NoHardcodedColorsRule extends LintRule {
         const bestMatch = matches[0];
         suggestedToken = bestMatch.tokenPath;
 
-        // Determine confidence level
+        // Determine confidence level based on Delta E
         if (bestMatch.isExact) {
           suggestionConfidence = 'exact';
         } else if (bestMatch.deltaE < 2) {
           suggestionConfidence = 'close';
+        } else if (bestMatch.deltaE < CLOSE_DELTA_E) {
+          suggestionConfidence = 'approximate';
         } else {
+          // Still provide suggestion but mark as very approximate
           suggestionConfidence = 'approximate';
         }
 
@@ -98,10 +104,16 @@ export class NoHardcodedColorsRule extends LintRule {
       }
 
       // Create message with match info
-      let message = 'Hardcoded color ' + hexColor + ' - should use a design token';
-      if (suggestedToken && suggestionConfidence !== 'exact') {
-        const bestMatch = matches[0];
-        message = 'Hardcoded color ' + hexColor + ' - closest token: ' + suggestedToken + ' (' + getDeltaEDescription(bestMatch.deltaE) + ')';
+      let message: string;
+      if (suggestedToken) {
+        if (suggestionConfidence === 'exact') {
+          message = 'Hardcoded color ' + hexColor + ' - exact match available: ' + suggestedToken;
+        } else {
+          const bestMatch = matches[0];
+          message = 'Hardcoded color ' + hexColor + ' - closest token: ' + suggestedToken + ' (' + getDeltaEDescription(bestMatch.deltaE) + ')';
+        }
+      } else {
+        message = 'Hardcoded color ' + hexColor + ' - should use a design token';
       }
 
       violations.push(

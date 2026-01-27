@@ -14,14 +14,14 @@ import { findClosestColors, getDeltaEDescription } from '../../shared/color-dist
 import { rgbToHex } from '../inspector';
 import { normalizePath } from '../../shared/path-utils';
 
-/** Maximum Delta E for color suggestions */
-const MAX_COLOR_DELTA_E = 10;
+/** Maximum Delta E for color suggestions (expanded to always show closest options) */
+const MAX_COLOR_DELTA_E = 50;
 
 /** Maximum number of alternative suggestions */
 const MAX_ALTERNATIVES = 3;
 
-/** Maximum tolerance for number matching (percentage) */
-const NUMBER_TOLERANCE_PERCENT = 0.1; // 10%
+/** Maximum tolerance for number matching (percentage) - expanded for better suggestions */
+const NUMBER_TOLERANCE_PERCENT = 1.0; // 100%
 
 /**
  * Rule to detect bindings to non-existent tokens
@@ -64,13 +64,28 @@ export class NoOrphanedVariablesRule extends LintRule {
 
       if (!variableInfo) {
         // Variable doesn't exist in document (deleted?)
+        // Try to find a replacement based on the node's current visual value
+        const suggestion = await this.findReplacementFromCurrentValue(
+          node,
+          inspection.property,
+          inspection.rawValue
+        );
+
+        let message = `Bound to missing variable ID: ${inspection.boundVariableId}`;
+        if (suggestion.suggestedToken) {
+          message += `. Suggested replacement: ${suggestion.suggestedToken}`;
+        }
+
         const violation = this.createViolation(
           node,
           inspection.property,
           inspection.boundVariableId,
-          `Bound to missing variable ID: ${inspection.boundVariableId}`
+          message,
+          suggestion.suggestedToken
         );
         violation.canUnbind = true;
+        violation.suggestionConfidence = suggestion.confidence;
+        violation.alternativeTokens = suggestion.alternatives;
         violations.push(violation);
       } else if (this.matchedVariableIds.size > 0 && !this.matchedVariableIds.has(inspection.boundVariableId)) {
         // Variable exists but no matching token found (using normalized path comparison)
@@ -154,6 +169,56 @@ export class NoOrphanedVariablesRule extends LintRule {
     }
 
     return undefined;
+  }
+
+  /**
+   * Find a replacement token based on the node's current visual value
+   * Used when the bound variable ID no longer exists in the document
+   */
+  private async findReplacementFromCurrentValue(
+    node: SceneNode,
+    property: string,
+    rawValue: unknown
+  ): Promise<{
+    suggestedToken?: string;
+    confidence?: MatchConfidence;
+    alternatives?: TokenSuggestion[];
+  }> {
+    try {
+      // Handle color properties (fills, strokes)
+      if (property.includes('fills') || property.includes('strokes')) {
+        if (rawValue && typeof rawValue === 'object' && 'r' in rawValue) {
+          const colorValue = rawValue as { r: number; g: number; b: number; a?: number };
+          return this.findColorReplacement(colorValue);
+        }
+      }
+
+      // Handle number properties (spacing, radius, etc.)
+      if (typeof rawValue === 'number') {
+        return this.findNumberReplacement(rawValue, property);
+      }
+
+      // Try to get the value directly from the node for number properties
+      const numberProps = [
+        'itemSpacing', 'counterAxisSpacing',
+        'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+        'cornerRadius', 'topLeftRadius', 'topRightRadius', 'bottomLeftRadius', 'bottomRightRadius',
+        'paragraphSpacing'
+      ];
+
+      if (numberProps.includes(property)) {
+        const nodeWithProps = node as unknown as Record<string, unknown>;
+        const value = nodeWithProps[property];
+        if (typeof value === 'number') {
+          return this.findNumberReplacement(value, property);
+        }
+      }
+
+      return {};
+    } catch (error) {
+      console.error('[OrphanedVariables] Error finding replacement from current value:', error);
+      return {};
+    }
   }
 
   /**
@@ -353,6 +418,7 @@ export class NoOrphanedVariablesRule extends LintRule {
   private findMatchingNumberTokens(value: number, category: 'spacing' | 'radius' | 'all'): string[] {
     const matches: Array<{ path: string; diff: number }> = [];
     const tolerance = value * NUMBER_TOLERANCE_PERCENT;
+    const maxAbsoluteTolerance = 20; // Always include tokens within 20px
 
     for (const [path, token] of this.tokens.tokens) {
       // Filter by category
@@ -375,8 +441,8 @@ export class NoOrphanedVariablesRule extends LintRule {
 
       const diff = Math.abs(tokenValue - value);
 
-      // Include exact matches and close matches
-      if (diff === 0 || diff <= Math.max(tolerance, 2)) {
+      // Include matches within percentage tolerance OR absolute tolerance
+      if (diff === 0 || diff <= Math.max(tolerance, maxAbsoluteTolerance)) {
         matches.push({ path, diff });
       }
     }

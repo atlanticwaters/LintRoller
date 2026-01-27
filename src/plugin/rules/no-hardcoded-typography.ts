@@ -76,10 +76,10 @@ export class NoHardcodedTypographyRule extends LintRule {
         const bestMatch = matches[0];
         suggestedToken = bestMatch.tokenPath;
 
-        // Determine confidence level
+        // Determine confidence level based on how close the match is
         if (bestMatch.isExact) {
           suggestionConfidence = 'exact';
-        } else if (bestMatch.difference <= 1) {
+        } else if (bestMatch.difference <= 1 || bestMatch.percentDifference <= 0.05) {
           suggestionConfidence = 'close';
         } else {
           suggestionConfidence = 'approximate';
@@ -104,11 +104,20 @@ export class NoHardcodedTypographyRule extends LintRule {
       let message: string;
 
       if (!canAutoFix) {
-        // Properties that require text styles
-        message = 'Hardcoded ' + propName + ' value ' + value + ' - use a text style instead';
-      } else if (suggestedToken && suggestionConfidence !== 'exact') {
-        const bestMatch = matches[0];
-        message = 'Hardcoded ' + propName + ' value ' + value + ' - closest token: ' + suggestedToken + ' (' + getNumberMatchDescription(bestMatch) + ')';
+        // Properties that require text styles (fontSize, lineHeight, letterSpacing)
+        if (suggestedToken) {
+          const bestMatch = matches[0];
+          message = 'Hardcoded ' + propName + ' value ' + value + ' - closest token: ' + suggestedToken + ' (' + getNumberMatchDescription(bestMatch) + '). Use a text style to apply.';
+        } else {
+          message = 'Hardcoded ' + propName + ' value ' + value + ' - use a text style instead';
+        }
+      } else if (suggestedToken) {
+        if (suggestionConfidence === 'exact') {
+          message = 'Hardcoded ' + propName + ' value ' + value + ' - exact match available: ' + suggestedToken;
+        } else {
+          const bestMatch = matches[0];
+          message = 'Hardcoded ' + propName + ' value ' + value + ' - closest token: ' + suggestedToken + ' (' + getNumberMatchDescription(bestMatch) + ')';
+        }
       } else {
         message = 'Hardcoded ' + propName + ' value ' + value + ' - should use a design token';
       }

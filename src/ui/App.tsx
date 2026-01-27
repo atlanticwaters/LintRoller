@@ -18,6 +18,7 @@ import { FixStatusBar } from './components/FixStatusBar';
 import { ActivityLog } from './components/ActivityLog';
 import { ResultsList } from './components/ResultsList';
 import { ConfigPanel } from './components/ConfigPanel';
+import { loadTokenFiles } from './tokens-loader';
 
 type View = 'results' | 'config';
 
@@ -171,6 +172,27 @@ export function App() {
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [handleScan]);
+
+  // Load tokens on mount and send to plugin
+  useEffect(() => {
+    async function loadAndSendTokens() {
+      try {
+        console.log('[UI] Starting token load...');
+        const files = await loadTokenFiles();
+        console.log('[UI] Token files loaded, sending to plugin...');
+        postMessage({
+          type: 'TOKEN_FILES_LOADED',
+          files: files.map(f => ({
+            path: f.path,
+            content: f.content,
+          })),
+        });
+      } catch (error) {
+        console.error('[UI] Failed to load tokens:', error);
+      }
+    }
+    loadAndSendTokens();
+  }, [postMessage]);
 
   // Select a node in Figma
   const handleSelectNode = useCallback(

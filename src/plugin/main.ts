@@ -18,11 +18,10 @@ import type {
 import { getDefaultConfig } from '../shared/types';
 import type { UIToPluginMessage, PluginToUIMessage } from '../shared/messages';
 import { TokenParser } from '../shared/token-parser';
-import { FigmaScanner, processInChunks } from './scanner';
+import { FigmaScanner } from './scanner';
 import { PropertyInspector } from './inspector';
 import { createRules } from './rules';
 import { getLocalVariables, buildMatchedVariableIdSet } from './variables';
-import { loadAllTokenData } from './tokens-data';
 import { applyFix, applyBulkFix, unbindVariable, detachStyle, bulkDetachStyles } from './fixer';
 
 // Plugin state
@@ -48,39 +47,46 @@ figma.showUI(__html__, {
 });
 
 /**
- * Initialize tokens from remote GitHub Pages
+ * Process token files received from the UI
+ * (UI fetches tokens to avoid CSP restrictions in the plugin sandbox)
  */
-async function initializeTokens(): Promise<void> {
+function processTokenFiles(files: Array<{ path: string; content: Record<string, unknown> }>): void {
   if (isLoadingTokens) return;
   isLoadingTokens = true;
 
   try {
-    console.log('Loading tokens from GitHub Pages...');
-
-    // Load all token data from remote
-    const { metadata, themes, files } = await loadAllTokenData();
-
-    // Store theme configs for later use
-    loadedThemeConfigs = themes;
+    console.log('[Plugin] Processing token files from UI...');
 
     // Parse tokens
     const parser = new TokenParser();
-    tokenCollection = parser.parseTokenFiles(files, metadata);
+    tokenCollection = parser.parseTokenFiles(files);
 
-    console.log(`Loaded ${tokenCollection.tokens.size} tokens from ${files.length} files`);
-    console.log(`Color values in index: ${tokenCollection.colorValues.size}`);
-    console.log(`Number values in index: ${tokenCollection.numberValues.size}`);
+    console.log(`[Plugin] Loaded ${tokenCollection.tokens.size} tokens from ${files.length} files`);
+    console.log(`[Plugin] Color values in index: ${tokenCollection.colorValues.size}`);
+    console.log(`[Plugin] Number values in index: ${tokenCollection.numberValues.size}`);
 
     // Debug: Show some sample color tokens
     if (tokenCollection.colorValues.size > 0) {
-      const sampleColors = Array.from(tokenCollection.colorValues.entries()).slice(0, 5);
-      console.log('Sample color tokens:', sampleColors);
+      const sampleColors = Array.from(tokenCollection.colorValues.entries()).slice(0, 10);
+      console.log('[Plugin] Sample color tokens (semantic preferred):', sampleColors);
+
+      // Count how many are semantic vs core
+      let semanticCount = 0;
+      let coreCount = 0;
+      for (const tokenPath of tokenCollection.colorValues.values()) {
+        if (tokenPath.startsWith('system.') || tokenPath.startsWith('component.')) {
+          semanticCount++;
+        } else {
+          coreCount++;
+        }
+      }
+      console.log(`[Plugin] Color token index: ${semanticCount} semantic, ${coreCount} core`);
     } else {
-      console.warn('No color tokens found! Checking token types...');
+      console.warn('[Plugin] No color tokens found! Checking token types...');
       const colorTokens = tokenCollection.byType.get('color') || [];
-      console.log(`Tokens with type "color": ${colorTokens.length}`);
+      console.log(`[Plugin] Tokens with type "color": ${colorTokens.length}`);
       if (colorTokens.length > 0) {
-        console.log('Sample color tokens by type:', colorTokens.slice(0, 3).map(t => ({
+        console.log('[Plugin] Sample color tokens by type:', colorTokens.slice(0, 3).map(t => ({
           path: t.path,
           resolvedValue: t.resolvedValue,
           type: t.type
@@ -94,10 +100,10 @@ async function initializeTokens(): Promise<void> {
       tokenPaths: Array.from(tokenCollection.tokens.keys()),
     });
   } catch (error) {
-    console.error('Failed to initialize tokens:', error);
+    console.error('[Plugin] Failed to process tokens:', error);
     postMessage({
       type: 'ERROR',
-      message: `Failed to load tokens: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      message: `Failed to process tokens: ${error instanceof Error ? error.message : 'Unknown error'}`,
     });
   } finally {
     isLoadingTokens = false;
@@ -257,9 +263,16 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
           tokenPaths: Array.from(tokenCollection.tokens.keys()),
         });
       } else {
-        // Retry loading if not loaded yet
-        initializeTokens();
+        // Tokens not loaded yet - UI should send them
+        postMessage({
+          type: 'ERROR',
+          message: 'Tokens not loaded yet. Please wait for UI to load tokens.',
+        });
       }
+      break;
+
+    case 'TOKEN_FILES_LOADED':
+      processTokenFiles(msg.files);
       break;
 
     case 'EXPORT_RESULTS':
@@ -429,5 +442,5 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
   }
 };
 
-// Initialize tokens on startup
-initializeTokens();
+// Tokens are now loaded by the UI and sent via TOKEN_FILES_LOADED message
+console.log('[Plugin] Ready. Waiting for UI to send token files...');
