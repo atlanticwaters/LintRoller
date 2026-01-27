@@ -70,6 +70,11 @@ export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, on
 
         <div className="message">
           {isFixed && <span className="fixed-badge">Fixed</span>}
+          {violation.isPathMismatch && !isFixed && (
+            <span className="path-mismatch-badge" title="Auto-fixable: Only path syntax differs (/ vs .)">
+              Path Mismatch
+            </span>
+          )}
           {violation.message}
         </div>
 

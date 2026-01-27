@@ -805,3 +805,319 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--figma-color-text-tertiary);
 }
+
+/* =============================================
+   Path Mismatch Badge
+   ============================================= */
+.path-mismatch-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 500;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background-color: #8b5cf6;
+  color: white;
+  margin-right: var(--space-xs);
+  text-transform: uppercase;
+}
+
+/* Path mismatch progress segment */
+.fix-progress-segment.path-mismatch {
+  background-color: #8b5cf6;
+}
+
+.fix-legend-dot.path-mismatch {
+  background-color: #8b5cf6;
+}
+
+/* =============================================
+   Auto-fix Button
+   ============================================= */
+.btn-auto-fix {
+  background-color: #8b5cf6;
+  color: white;
+  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.btn-auto-fix:hover {
+  background-color: #7c3aed;
+}
+
+.btn-auto-fix:disabled {
+  background-color: var(--figma-color-border);
+  cursor: not-allowed;
+}
+
+/* =============================================
+   Fix Status Bar Actions
+   ============================================= */
+.fix-status-actions {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.btn-fix-all-compact {
+  background-color: var(--color-success);
+  color: white;
+  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.btn-fix-all-compact:hover {
+  background-color: #0d9668;
+}
+
+.btn-fix-all-compact:disabled {
+  background-color: var(--figma-color-border);
+  cursor: not-allowed;
+}
+
+/* Activity toggle button */
+.btn-activity-toggle {
+  background-color: var(--figma-color-bg);
+  color: var(--figma-color-text-secondary);
+  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--figma-color-border);
+}
+
+.btn-activity-toggle:hover {
+  background-color: var(--figma-color-border);
+}
+
+.btn-activity-toggle.active {
+  background-color: var(--color-info-bg);
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+
+/* =============================================
+   Fix Progress Indicator
+   ============================================= */
+.fix-progress-indicator {
+  margin-bottom: var(--space-sm);
+  padding: var(--space-sm);
+  background-color: var(--color-info-bg);
+  border-radius: var(--radius-sm);
+}
+
+.fix-progress-text {
+  font-size: var(--font-size-xs);
+  color: var(--color-info);
+  margin-bottom: var(--space-xs);
+}
+
+.fix-progress-bar-active {
+  height: 4px;
+  background-color: var(--figma-color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.fix-progress-bar-fill {
+  height: 100%;
+  background-color: var(--color-info);
+  transition: width 0.2s ease;
+}
+
+/* =============================================
+   Activity Log
+   ============================================= */
+.activity-log {
+  background-color: var(--figma-color-bg-secondary);
+  border-bottom: 1px solid var(--figma-color-border);
+  max-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: 1px solid var(--figma-color-border);
+  flex-shrink: 0;
+}
+
+.activity-log-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.activity-log-title-text {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.activity-log-counts {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.activity-count {
+  font-size: var(--font-size-xs);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.activity-count.success {
+  background-color: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.activity-count.failed {
+  background-color: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.activity-log-actions {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--figma-color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  padding: var(--space-xs);
+}
+
+.btn-text:hover {
+  color: var(--figma-color-text);
+}
+
+.activity-log-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-sm) 0;
+}
+
+.activity-log-empty {
+  padding: var(--space-lg);
+  text-align: center;
+  color: var(--figma-color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.activity-log-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-log-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-lg);
+  transition: background-color 0.15s ease;
+}
+
+.activity-log-item:hover {
+  background-color: var(--figma-color-bg);
+}
+
+.activity-log-item.success .status-icon {
+  color: var(--color-success);
+}
+
+.activity-log-item.failed .status-icon {
+  color: var(--color-error);
+}
+
+.activity-item-status {
+  flex-shrink: 0;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-icon {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.activity-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-item-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.activity-node-name {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-property {
+  font-size: var(--font-size-xs);
+  color: var(--figma-color-text-tertiary);
+  font-family: monospace;
+}
+
+.activity-action-type {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background-color: var(--figma-color-bg);
+  color: var(--figma-color-text-secondary);
+  text-transform: uppercase;
+}
+
+.activity-item-change {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: 2px;
+  font-size: var(--font-size-xs);
+}
+
+.activity-before {
+  color: var(--color-error);
+  font-family: monospace;
+  max-width: 100px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-arrow {
+  color: var(--figma-color-text-tertiary);
+}
+
+.activity-after {
+  color: var(--color-success);
+  font-family: monospace;
+  max-width: 100px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-error {
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+  margin-top: 2px;
+}
+
+.activity-item-time {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--figma-color-text-tertiary);
+}

@@ -12,6 +12,7 @@ import { getTokenPathForVariable } from '../variables';
 import { LintRule } from './base';
 import { findClosestColors, getDeltaEDescription } from '../../shared/color-distance';
 import { rgbToHex } from '../inspector';
+import { normalizePath } from '../../shared/path-utils';
 
 /** Maximum Delta E for color suggestions */
 const MAX_COLOR_DELTA_E = 10;
@@ -82,6 +83,29 @@ export class NoOrphanedVariablesRule extends LintRule {
           continue;
         }
 
+        // Check for path syntax mismatch (/ vs . notation)
+        // This detects cases where the variable and token are the same after normalization
+        const pathMismatchToken = this.findPathMismatchToken(variableInfo.name);
+
+        if (pathMismatchToken) {
+          // This is a path syntax mismatch - auto-fixable
+          const message = `Variable "${variableInfo.name}" has path syntax mismatch with token "${pathMismatchToken}". The paths match after normalization but use different separators (/ vs .).`;
+
+          const violation = this.createViolation(
+            node,
+            inspection.property,
+            variableInfo.name,
+            message,
+            pathMismatchToken
+          );
+          violation.canUnbind = true;
+          violation.suggestionConfidence = 'exact';
+          violation.isPathMismatch = true;
+          violation.normalizedMatchPath = pathMismatchToken;
+          violations.push(violation);
+          continue;
+        }
+
         // Try to get the resolved value and suggest a replacement token
         const suggestion = await this.findReplacementToken(
           inspection.boundVariableId,
@@ -111,6 +135,25 @@ export class NoOrphanedVariablesRule extends LintRule {
     }
 
     return violations;
+  }
+
+  /**
+   * Check if a variable name matches a token path after normalization
+   * This detects path syntax mismatches (/ vs . notation)
+   */
+  private findPathMismatchToken(variableName: string): string | undefined {
+    const normalizedVarName = normalizePath(variableName);
+
+    for (const tokenPath of this.tokens.tokens.keys()) {
+      const normalizedTokenPath = normalizePath(tokenPath);
+
+      // Check if the normalized paths match but the original paths differ
+      if (normalizedVarName === normalizedTokenPath && variableName !== tokenPath) {
+        return tokenPath;
+      }
+    }
+
+    return undefined;
   }
 
   /**

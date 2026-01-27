@@ -6,24 +6,26 @@
 
 import type { TokenFileInput, TokenSetMetadata, ThemeConfig } from '../shared/types';
 
-// Base URL for token files
-const TOKENS_BASE_URL = 'https://atlanticwaters.github.io/Tokens-Studio-Sandbox';
+// Base URL for token files (using raw GitHub content)
+const TOKENS_BASE_URL = 'https://raw.githubusercontent.com/atlanticwaters/Tokens-Studio-Sandbox/main';
 
-// Token file paths (derived from $metadata.json tokenSetOrder)
+// Token file paths matching the actual repository structure
 const TOKEN_FILE_PATHS = [
-  'Color/Default',
-  'Typography/Default',
-  'Spacing/Mode 1',
-  'Radius/Mode 1',
-  'Effects/Mode 1',
-  'Border Width/Mode 1',
-  'iOS Overrides/Light',
-  'iOS Overrides/Dark',
-  'Buttons/Mode 1',
-  'Semantic Tokens/Light Mode',
-  'Semantic Tokens/Dark Mode',
-  'Component Tokens/Light Mode',
-  'Component Tokens/Dark Mode',
+  // Core tokens (primitives)
+  'core/colors',
+  'core/neutrals',
+  'core/border',
+  'core/elevation',
+  'core/font-family',
+  'core/font-size',
+  'core/font-weight',
+  'core/letter-spacing',
+  'core/line-height',
+  'core/position',
+  'core/spacing',
+  // Semantic tokens
+  'semantic/light',
+  'semantic/dark',
 ];
 
 /**

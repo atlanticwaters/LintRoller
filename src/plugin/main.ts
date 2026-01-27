@@ -68,6 +68,25 @@ async function initializeTokens(): Promise<void> {
     tokenCollection = parser.parseTokenFiles(files, metadata);
 
     console.log(`Loaded ${tokenCollection.tokens.size} tokens from ${files.length} files`);
+    console.log(`Color values in index: ${tokenCollection.colorValues.size}`);
+    console.log(`Number values in index: ${tokenCollection.numberValues.size}`);
+
+    // Debug: Show some sample color tokens
+    if (tokenCollection.colorValues.size > 0) {
+      const sampleColors = Array.from(tokenCollection.colorValues.entries()).slice(0, 5);
+      console.log('Sample color tokens:', sampleColors);
+    } else {
+      console.warn('No color tokens found! Checking token types...');
+      const colorTokens = tokenCollection.byType.get('color') || [];
+      console.log(`Tokens with type "color": ${colorTokens.length}`);
+      if (colorTokens.length > 0) {
+        console.log('Sample color tokens by type:', colorTokens.slice(0, 3).map(t => ({
+          path: t.path,
+          resolvedValue: t.resolvedValue,
+          type: t.type
+        })));
+      }
+    }
 
     postMessage({
       type: 'TOKENS_LOADED',
@@ -252,6 +271,13 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
         console.log('[Plugin] APPLY_FIX:', msg.nodeId, msg.property, msg.tokenPath, msg.ruleId);
         console.log('[Plugin] Theme configs available:', loadedThemeConfigs.length);
         try {
+          // Get node name for display
+          let nodeName = 'Unknown';
+          const node = await figma.getNodeByIdAsync(msg.nodeId);
+          if (node && 'name' in node) {
+            nodeName = node.name;
+          }
+
           const result = await applyFix(
             msg.nodeId,
             msg.property,
@@ -266,6 +292,10 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
             nodeId: msg.nodeId,
             property: msg.property,
             message: result.message || (result.success ? undefined : 'Fix failed'),
+            nodeName,
+            beforeValue: result.beforeValue,
+            afterValue: result.afterValue,
+            actionType: result.actionType,
           });
         } catch (error) {
           console.error('[Plugin] APPLY_FIX error:', error);
@@ -282,18 +312,37 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
 
     case 'APPLY_BULK_FIX':
       {
-        const bulkResult = await applyBulkFix(msg.fixes, loadedThemeConfigs);
+        const bulkResult = await applyBulkFix(
+          msg.fixes,
+          loadedThemeConfigs,
+          (progress) => {
+            postMessage({
+              type: 'FIX_PROGRESS',
+              current: progress.current,
+              total: progress.total,
+              currentAction: progress.currentAction,
+            });
+          }
+        );
         postMessage({
           type: 'BULK_FIX_COMPLETE',
           successful: bulkResult.successful,
           failed: bulkResult.failed,
           errors: bulkResult.errors,
+          actions: bulkResult.actions,
         });
       }
       break;
 
     case 'UNBIND_VARIABLE':
       {
+        // Get node name for display
+        let nodeName = 'Unknown';
+        const unbindNode = await figma.getNodeByIdAsync(msg.nodeId);
+        if (unbindNode && 'name' in unbindNode) {
+          nodeName = unbindNode.name;
+        }
+
         const unbindResult = await unbindVariable(msg.nodeId, msg.property);
         postMessage({
           type: 'FIX_APPLIED',
@@ -301,12 +350,23 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
           nodeId: msg.nodeId,
           property: msg.property,
           message: unbindResult.message,
+          nodeName,
+          beforeValue: unbindResult.beforeValue,
+          afterValue: unbindResult.afterValue,
+          actionType: unbindResult.actionType,
         });
       }
       break;
 
     case 'DETACH_STYLE':
       {
+        // Get node name for display
+        let detachNodeName = 'Unknown';
+        const detachNode = await figma.getNodeByIdAsync(msg.nodeId);
+        if (detachNode && 'name' in detachNode) {
+          detachNodeName = detachNode.name;
+        }
+
         const detachResult = await detachStyle(msg.nodeId, msg.property);
         postMessage({
           type: 'FIX_APPLIED',
@@ -314,6 +374,10 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
           nodeId: msg.nodeId,
           property: msg.property,
           message: detachResult.message,
+          nodeName: detachNodeName,
+          beforeValue: detachResult.beforeValue,
+          afterValue: detachResult.afterValue,
+          actionType: detachResult.actionType,
         });
       }
       break;
@@ -326,6 +390,39 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
           successful: bulkDetachResult.successful,
           failed: bulkDetachResult.failed,
           errors: bulkDetachResult.errors,
+        });
+      }
+      break;
+
+    case 'AUTO_FIX_PATH_MISMATCHES':
+      {
+        // Auto-fix path mismatches uses the same bulk fix mechanism
+        // but with a specific rule ID for path mismatches
+        const pathMismatchFixes = msg.fixes.map(fix => ({
+          nodeId: fix.nodeId,
+          property: fix.property,
+          tokenPath: fix.tokenPath,
+          ruleId: 'no-orphaned-variables' as const,
+        }));
+
+        const pathMismatchResult = await applyBulkFix(
+          pathMismatchFixes,
+          loadedThemeConfigs,
+          (progress) => {
+            postMessage({
+              type: 'FIX_PROGRESS',
+              current: progress.current,
+              total: progress.total,
+              currentAction: progress.currentAction,
+            });
+          }
+        );
+        postMessage({
+          type: 'BULK_FIX_COMPLETE',
+          successful: pathMismatchResult.successful,
+          failed: pathMismatchResult.failed,
+          errors: pathMismatchResult.errors,
+          actions: pathMismatchResult.actions,
         });
       }
       break;

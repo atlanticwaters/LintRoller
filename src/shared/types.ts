@@ -171,6 +171,10 @@ export interface LintViolation {
   canUnbind?: boolean;
   /** Whether this violation can be fixed by detaching the style */
   canDetach?: boolean;
+  /** Whether this is a path syntax mismatch (/ vs . notation) that can be auto-fixed */
+  isPathMismatch?: boolean;
+  /** The correct token path after normalization (for path mismatches) */
+  normalizedMatchPath?: string;
 }
 
 /**

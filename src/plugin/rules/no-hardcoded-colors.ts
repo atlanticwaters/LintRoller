@@ -63,6 +63,12 @@ export class NoHardcodedColorsRule extends LintRule {
       // Find closest matching tokens
       const matches = this.findClosestColorTokens(hexColor);
 
+      // Debug: Log color matching details
+      console.log(`[NoHardcodedColors] Checking ${hexColor} - found ${matches.length} matches, colorValues size: ${this.tokens.colorValues.size}`);
+      if (matches.length > 0) {
+        console.log(`[NoHardcodedColors] Best match: ${matches[0].tokenPath} (deltaE: ${matches[0].deltaE})`);
+      }
+
       let suggestedToken: string | undefined;
       let suggestionConfidence: MatchConfidence | undefined;
       let alternativeTokens: TokenSuggestion[] | undefined;

@@ -5,6 +5,7 @@
  */
 
 import type { LintRuleId, ThemeConfig } from '../shared/types';
+import type { FixActionDetail } from '../shared/messages';
 import { normalizePath, pathEndsWith, pathContains } from '../shared/path-utils';
 
 /**
@@ -13,6 +14,12 @@ import { normalizePath, pathEndsWith, pathContains } from '../shared/path-utils'
 export interface FixResult {
   success: boolean;
   message?: string;
+  /** Value before the fix was applied */
+  beforeValue?: string;
+  /** Value after the fix was applied */
+  afterValue?: string;
+  /** Type of fix action performed */
+  actionType?: 'rebind' | 'unbind' | 'detach';
 }
 
 /**
@@ -88,6 +95,16 @@ async function findVariableForToken(
 }
 
 /**
+ * Get a string representation of a color for display
+ */
+function colorToString(paint: SolidPaint): string {
+  const r = Math.round(paint.color.r * 255);
+  const g = Math.round(paint.color.g * 255);
+  const b = Math.round(paint.color.b * 255);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+/**
  * Apply a color variable to a fill or stroke
  */
 async function applyColorFix(
@@ -105,6 +122,12 @@ async function applyColorFix(
 
     if (Array.isArray(fills) && fills[index]) {
       try {
+        // Capture before value
+        const paint = fills[index] as SolidPaint;
+        const beforeValue = paint.boundVariables?.color
+          ? `var(${paint.boundVariables.color.id})`
+          : (paint.type === 'SOLID' ? colorToString(paint) : 'gradient/image');
+
         // Create a copy of the fills array
         const newFills = [...fills] as SolidPaint[];
 
@@ -118,7 +141,12 @@ async function applyColorFix(
         newFills[index] = paintWithVariable;
         (node as GeometryMixin).fills = newFills;
 
-        return { success: true };
+        return {
+          success: true,
+          beforeValue,
+          afterValue: variable.name,
+          actionType: 'rebind',
+        };
       } catch (error) {
         return {
           success: false,
@@ -134,6 +162,12 @@ async function applyColorFix(
 
     if (Array.isArray(strokes) && strokes[index]) {
       try {
+        // Capture before value
+        const paint = strokes[index] as SolidPaint;
+        const beforeValue = paint.boundVariables?.color
+          ? `var(${paint.boundVariables.color.id})`
+          : (paint.type === 'SOLID' ? colorToString(paint) : 'gradient/image');
+
         const newStrokes = [...strokes] as SolidPaint[];
 
         const paintWithVariable = figma.variables.setBoundVariableForPaint(
@@ -145,7 +179,12 @@ async function applyColorFix(
         newStrokes[index] = paintWithVariable;
         (node as GeometryMixin).strokes = newStrokes;
 
-        return { success: true };
+        return {
+          success: true,
+          beforeValue,
+          afterValue: variable.name,
+          actionType: 'rebind',
+        };
       } catch (error) {
         return {
           success: false,
@@ -156,6 +195,27 @@ async function applyColorFix(
   }
 
   return { success: false, message: 'Could not find property to fix: ' + property };
+}
+
+/**
+ * Get the current value of a number property for before/after tracking
+ */
+function getNumberPropertyValue(node: SceneNode, property: string): string {
+  const nodeWithProps = node as unknown as Record<string, unknown>;
+  const boundVars = (node as unknown as { boundVariables?: Record<string, { id: string }> }).boundVariables;
+
+  // Check if property has a bound variable
+  if (boundVars && boundVars[property]) {
+    return `var(${boundVars[property].id})`;
+  }
+
+  // Get the raw value
+  const value = nodeWithProps[property];
+  if (typeof value === 'number') {
+    return String(value);
+  }
+
+  return 'unknown';
 }
 
 /**
@@ -194,6 +254,9 @@ async function applyNumberFix(
       return { success: false, message: 'Property is not bindable: ' + property };
     }
 
+    // Capture before value
+    const beforeValue = getNumberPropertyValue(node, property);
+
     // Special handling for corner radius - if uniform, bind all corners
     if (property === 'cornerRadius' && 'cornerRadius' in node) {
       const cornerNode = node as RectangleNode | FrameNode | ComponentNode | InstanceNode;
@@ -203,7 +266,12 @@ async function applyNumberFix(
         cornerNode.setBoundVariable('topRightRadius', variable);
         cornerNode.setBoundVariable('bottomLeftRadius', variable);
         cornerNode.setBoundVariable('bottomRightRadius', variable);
-        return { success: true };
+        return {
+          success: true,
+          beforeValue,
+          afterValue: variable.name,
+          actionType: 'rebind',
+        };
       }
     }
 
@@ -211,7 +279,12 @@ async function applyNumberFix(
     (node as SceneNode & { setBoundVariable: (field: VariableBindableNodeField, variable: Variable) => void })
       .setBoundVariable(bindableField, variable);
 
-    return { success: true };
+    return {
+      success: true,
+      beforeValue,
+      afterValue: variable.name,
+      actionType: 'rebind',
+    };
   } catch (error) {
     return {
       success: false,
@@ -240,10 +313,19 @@ async function applyTypographyFix(
 
   try {
     switch (property) {
-      case 'paragraphSpacing':
+      case 'paragraphSpacing': {
+        // Capture before value
+        const beforeValue = getNumberPropertyValue(textNode, 'paragraphSpacing');
+
         // Paragraph spacing can be bound to a variable at the node level
         textNode.setBoundVariable('paragraphSpacing', variable);
-        return { success: true };
+        return {
+          success: true,
+          beforeValue,
+          afterValue: variable.name,
+          actionType: 'rebind',
+        };
+      }
 
       case 'fontSize':
       case 'lineHeight':
@@ -348,6 +430,15 @@ export async function applyFix(
 }
 
 /**
+ * Callback for progress updates during bulk fix
+ */
+export type BulkFixProgressCallback = (progress: {
+  current: number;
+  total: number;
+  currentAction: FixActionDetail;
+}) => void;
+
+/**
  * Apply fixes to multiple violations
  */
 export async function applyBulkFix(
@@ -357,13 +448,29 @@ export async function applyBulkFix(
     tokenPath: string;
     ruleId: string;
   }>,
-  themeConfigs: ThemeConfig[]
-): Promise<{ successful: number; failed: number; errors: string[] }> {
+  themeConfigs: ThemeConfig[],
+  onProgress?: BulkFixProgressCallback
+): Promise<{ successful: number; failed: number; errors: string[]; actions: FixActionDetail[] }> {
   let successful = 0;
   let failed = 0;
   const errors: string[] = [];
+  const actions: FixActionDetail[] = [];
+  const total = fixes.length;
 
-  for (const fix of fixes) {
+  for (let i = 0; i < fixes.length; i++) {
+    const fix = fixes[i];
+
+    // Get node name for display
+    let nodeName = 'Unknown';
+    try {
+      const node = await figma.getNodeByIdAsync(fix.nodeId);
+      if (node && 'name' in node) {
+        nodeName = node.name;
+      }
+    } catch {
+      // Ignore error, use default name
+    }
+
     const result = await applyFix(
       fix.nodeId,
       fix.property,
@@ -371,6 +478,20 @@ export async function applyBulkFix(
       fix.ruleId as LintRuleId,
       themeConfigs
     );
+
+    const action: FixActionDetail = {
+      nodeId: fix.nodeId,
+      nodeName,
+      property: fix.property,
+      actionType: result.actionType || 'rebind',
+      beforeValue: result.beforeValue || 'unknown',
+      afterValue: result.afterValue || fix.tokenPath,
+      status: result.success ? 'success' : 'failed',
+      errorMessage: result.message,
+      timestamp: Date.now(),
+    };
+
+    actions.push(action);
 
     if (result.success) {
       successful++;
@@ -381,11 +502,30 @@ export async function applyBulkFix(
       }
     }
 
+    // Send progress update
+    if (onProgress) {
+      onProgress({
+        current: i + 1,
+        total,
+        currentAction: action,
+      });
+    }
+
     // Yield to prevent blocking
     await new Promise(resolve => setTimeout(resolve, 0));
   }
 
-  return { successful, failed, errors };
+  return { successful, failed, errors, actions };
+}
+
+/**
+ * Get the bound variable name from a paint if it has one
+ */
+function getBoundVariableFromPaint(paint: SolidPaint): string | null {
+  if (paint.boundVariables?.color) {
+    return paint.boundVariables.color.id;
+  }
+  return null;
 }
 
 /**
@@ -418,6 +558,10 @@ export async function unbindVariable(
         const newFills = [...fills];
         const paint = newFills[index] as SolidPaint;
 
+        // Capture before value
+        const boundVarId = getBoundVariableFromPaint(paint);
+        const beforeValue = boundVarId ? `var(${boundVarId})` : colorToString(paint);
+
         // Create a new paint without the bound variable
         if (paint.type === 'SOLID') {
           newFills[index] = {
@@ -428,7 +572,12 @@ export async function unbindVariable(
             blendMode: paint.blendMode,
           };
           (sceneNode as GeometryMixin).fills = newFills;
-          return { success: true };
+          return {
+            success: true,
+            beforeValue,
+            afterValue: colorToString(paint),
+            actionType: 'unbind',
+          };
         }
       }
     }
@@ -441,6 +590,10 @@ export async function unbindVariable(
         const newStrokes = [...strokes];
         const paint = newStrokes[index] as SolidPaint;
 
+        // Capture before value
+        const boundVarId = getBoundVariableFromPaint(paint);
+        const beforeValue = boundVarId ? `var(${boundVarId})` : colorToString(paint);
+
         if (paint.type === 'SOLID') {
           newStrokes[index] = {
             type: 'SOLID',
@@ -450,7 +603,12 @@ export async function unbindVariable(
             blendMode: paint.blendMode,
           };
           (sceneNode as GeometryMixin).strokes = newStrokes;
-          return { success: true };
+          return {
+            success: true,
+            beforeValue,
+            afterValue: colorToString(paint),
+            actionType: 'unbind',
+          };
         }
       }
     }
@@ -458,8 +616,15 @@ export async function unbindVariable(
     // Handle text node properties
     if (sceneNode.type === 'TEXT' && property === 'paragraphSpacing') {
       const textNode = sceneNode as TextNode;
+      const beforeValue = getNumberPropertyValue(textNode, 'paragraphSpacing');
+      const currentValue = String(textNode.paragraphSpacing);
       textNode.setBoundVariable('paragraphSpacing', null);
-      return { success: true };
+      return {
+        success: true,
+        beforeValue,
+        afterValue: currentValue,
+        actionType: 'unbind',
+      };
     }
 
     // Handle other bindable properties by setting them to null
@@ -485,6 +650,11 @@ export async function unbindVariable(
 
       const field = propertyToField[property];
       if (field) {
+        // Capture before value
+        const beforeValue = getNumberPropertyValue(sceneNode, property);
+        const nodeWithProps = sceneNode as unknown as Record<string, unknown>;
+        const currentValue = String(nodeWithProps[property] ?? 'unknown');
+
         // For corner radius, unbind all corners
         if (property === 'cornerRadius') {
           bindableNode.setBoundVariable('topLeftRadius', null);
@@ -494,7 +664,12 @@ export async function unbindVariable(
         } else {
           bindableNode.setBoundVariable(field, null);
         }
-        return { success: true };
+        return {
+          success: true,
+          beforeValue,
+          afterValue: currentValue,
+          actionType: 'unbind',
+        };
       }
     }
 
@@ -527,32 +702,64 @@ export async function detachStyle(
     switch (property) {
       case 'fillStyle':
         if ('fillStyleId' in sceneNode) {
+          const nodeWithStyle = sceneNode as GeometryMixin & { fillStyleId: string };
+          const beforeValue = nodeWithStyle.fillStyleId || 'none';
           // Setting fillStyleId to empty string detaches the style
-          (sceneNode as GeometryMixin & { fillStyleId: string }).fillStyleId = '';
-          return { success: true, message: 'Fill style detached' };
+          nodeWithStyle.fillStyleId = '';
+          return {
+            success: true,
+            message: 'Fill style detached',
+            beforeValue,
+            afterValue: 'detached',
+            actionType: 'detach',
+          };
         }
         break;
 
       case 'strokeStyle':
         if ('strokeStyleId' in sceneNode) {
-          (sceneNode as GeometryMixin & { strokeStyleId: string }).strokeStyleId = '';
-          return { success: true, message: 'Stroke style detached' };
+          const nodeWithStyle = sceneNode as GeometryMixin & { strokeStyleId: string };
+          const beforeValue = nodeWithStyle.strokeStyleId || 'none';
+          nodeWithStyle.strokeStyleId = '';
+          return {
+            success: true,
+            message: 'Stroke style detached',
+            beforeValue,
+            afterValue: 'detached',
+            actionType: 'detach',
+          };
         }
         break;
 
       case 'textStyle':
         if (sceneNode.type === 'TEXT') {
           const textNode = sceneNode as TextNode;
+          const rawStyleId = textNode.textStyleId;
+          const beforeValue = typeof rawStyleId === 'symbol' ? 'mixed' : (rawStyleId || 'none');
           // Setting textStyleId to empty string detaches the style
           textNode.textStyleId = '';
-          return { success: true, message: 'Text style detached' };
+          return {
+            success: true,
+            message: 'Text style detached',
+            beforeValue,
+            afterValue: 'detached',
+            actionType: 'detach',
+          };
         }
         break;
 
       case 'effectStyle':
         if ('effectStyleId' in sceneNode) {
-          (sceneNode as BlendMixin & { effectStyleId: string }).effectStyleId = '';
-          return { success: true, message: 'Effect style detached' };
+          const nodeWithStyle = sceneNode as BlendMixin & { effectStyleId: string };
+          const beforeValue = nodeWithStyle.effectStyleId || 'none';
+          nodeWithStyle.effectStyleId = '';
+          return {
+            success: true,
+            message: 'Effect style detached',
+            beforeValue,
+            afterValue: 'detached',
+            actionType: 'detach',
+          };
         }
         break;
 

@@ -10,11 +10,12 @@ import type {
   ScanScope,
 } from '../shared/types';
 import { getDefaultConfig } from '../shared/types';
-import type { PluginToUIMessage, UIToPluginMessage } from '../shared/messages';
+import type { PluginToUIMessage, UIToPluginMessage, FixActionDetail } from '../shared/messages';
 import { Header } from './components/Header';
 import { Summary } from './components/Summary';
 import { ProgressBar } from './components/ProgressBar';
 import { FixStatusBar } from './components/FixStatusBar';
+import { ActivityLog } from './components/ActivityLog';
 import { ResultsList } from './components/ResultsList';
 import { ConfigPanel } from './components/ConfigPanel';
 
@@ -31,6 +32,9 @@ export function App() {
   const [groupBy, setGroupBy] = useState<'rule' | 'node'>('rule');
   const [tokenCount, setTokenCount] = useState(0);
   const [fixedViolations, setFixedViolations] = useState<Set<string>>(new Set());
+  const [fixActions, setFixActions] = useState<FixActionDetail[]>([]);
+  const [fixProgress, setFixProgress] = useState<{ current: number; total: number } | null>(null);
+  const [showActivityLog, setShowActivityLog] = useState(false);
 
   // Send message to plugin
   const postMessage = useCallback((message: UIToPluginMessage) => {
@@ -58,6 +62,9 @@ export function App() {
         case 'SCAN_STARTED':
           setProgress({ processed: 0, total: msg.totalNodes });
           setFixedViolations(new Set()); // Reset fixed violations on new scan
+          setFixActions([]); // Reset activity log on new scan
+          setFixProgress(null);
+          setShowActivityLog(false);
           break;
 
         case 'SCAN_PROGRESS':
@@ -81,6 +88,22 @@ export function App() {
         case 'FIX_APPLIED':
           console.log('[UI] FIX_APPLIED received:', msg);
           setIsFixing(false);
+          setFixProgress(null);
+
+          // Add to activity log
+          const fixAction: FixActionDetail = {
+            nodeId: msg.nodeId,
+            nodeName: msg.nodeName || 'Unknown',
+            property: msg.property,
+            actionType: msg.actionType || 'rebind',
+            beforeValue: msg.beforeValue || 'unknown',
+            afterValue: msg.afterValue || 'unknown',
+            status: msg.success ? 'success' : 'failed',
+            errorMessage: msg.message,
+            timestamp: Date.now(),
+          };
+          setFixActions(prev => [...prev, fixAction]);
+
           if (msg.success) {
             // Mark this violation as fixed
             setFixedViolations(prev => {
@@ -98,8 +121,23 @@ export function App() {
           }
           break;
 
+        case 'FIX_PROGRESS':
+          setFixProgress({ current: msg.current, total: msg.total });
+          // Add current action to activity log
+          setFixActions(prev => [...prev, msg.currentAction]);
+          break;
+
         case 'BULK_FIX_COMPLETE':
           setIsFixing(false);
+          setFixProgress(null);
+
+          // Actions are already added via FIX_PROGRESS, but add any that might be missing
+          if (msg.actions && msg.actions.length > 0) {
+            // The actions are already in the log from FIX_PROGRESS messages
+            // But we can show the activity log automatically
+            setShowActivityLog(true);
+          }
+
           if (msg.failed > 0) {
             console.error('Bulk fix errors:', msg.errors);
             alert('Fixed ' + msg.successful + ' issues. ' + msg.failed + ' failed.\n\n' + msg.errors.slice(0, 3).join('\n'));
@@ -223,6 +261,32 @@ export function App() {
     [postMessage]
   );
 
+  // Auto-fix all path mismatches
+  const handleAutoFixPathMismatches = useCallback(() => {
+    if (!results) return;
+
+    const pathMismatches = results.violations.filter(
+      v => v.isPathMismatch && v.normalizedMatchPath && !fixedViolations.has(v.nodeId + ':' + v.property)
+    );
+
+    if (pathMismatches.length === 0) return;
+
+    setIsFixing(true);
+    postMessage({
+      type: 'AUTO_FIX_PATH_MISMATCHES',
+      fixes: pathMismatches.map(v => ({
+        nodeId: v.nodeId,
+        property: v.property,
+        tokenPath: v.normalizedMatchPath!,
+      })),
+    });
+  }, [results, fixedViolations, postMessage]);
+
+  // Clear activity log
+  const handleClearActivityLog = useCallback(() => {
+    setFixActions([]);
+  }, []);
+
   // Export results
   const handleExport = useCallback(
     (format: 'json' | 'csv') => {
@@ -309,12 +373,25 @@ export function App() {
           {results && <Summary results={results} />}
 
           {results && results.violations.length > 0 && (
-            <FixStatusBar
-              violations={results.violations}
-              fixedViolations={fixedViolations}
-              isFixing={isFixing}
-              onFixAll={() => handleBulkFix(results.violations)}
-            />
+            <>
+              <FixStatusBar
+                violations={results.violations}
+                fixedViolations={fixedViolations}
+                isFixing={isFixing}
+                onFixAll={() => handleBulkFix(results.violations)}
+                onAutoFixPathMismatches={handleAutoFixPathMismatches}
+                fixProgress={fixProgress}
+                showActivityLog={showActivityLog}
+                onToggleActivityLog={() => setShowActivityLog(!showActivityLog)}
+                activityCount={fixActions.length}
+              />
+              <ActivityLog
+                actions={fixActions}
+                isVisible={showActivityLog}
+                onClose={() => setShowActivityLog(false)}
+                onClear={handleClearActivityLog}
+              />
+            </>
           )}
 
           <ResultsList

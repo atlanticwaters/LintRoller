@@ -4,6 +4,21 @@
 
 import type { LintConfig, LintResults, ScanScope } from './types';
 
+/**
+ * Detailed information about a fix action for activity logging
+ */
+export interface FixActionDetail {
+  nodeId: string;
+  nodeName: string;
+  property: string;
+  actionType: 'rebind' | 'unbind' | 'detach';
+  beforeValue: string;
+  afterValue: string;
+  status: 'success' | 'failed';
+  errorMessage?: string;
+  timestamp: number;
+}
+
 // Messages from UI to Plugin
 
 export interface StartScanMessage {
@@ -69,6 +84,15 @@ export interface ApplyBulkFixMessage {
   }>;
 }
 
+export interface AutoFixPathMismatchesMessage {
+  type: 'AUTO_FIX_PATH_MISMATCHES';
+  fixes: Array<{
+    nodeId: string;
+    property: string;
+    tokenPath: string;
+  }>;
+}
+
 export type UIToPluginMessage =
   | StartScanMessage
   | SelectNodeMessage
@@ -79,7 +103,8 @@ export type UIToPluginMessage =
   | ApplyBulkFixMessage
   | UnbindVariableMessage
   | DetachStyleMessage
-  | BulkDetachStylesMessage;
+  | BulkDetachStylesMessage
+  | AutoFixPathMismatchesMessage;
 
 // Messages from Plugin to UI
 
@@ -121,6 +146,21 @@ export interface FixAppliedMessage {
   nodeId: string;
   property: string;
   message?: string;
+  /** Node name for display purposes */
+  nodeName?: string;
+  /** Value before the fix was applied */
+  beforeValue?: string;
+  /** Value after the fix was applied */
+  afterValue?: string;
+  /** Type of fix action performed */
+  actionType?: 'rebind' | 'unbind' | 'detach';
+}
+
+export interface FixProgressMessage {
+  type: 'FIX_PROGRESS';
+  current: number;
+  total: number;
+  currentAction: FixActionDetail;
 }
 
 export interface BulkFixCompleteMessage {
@@ -128,6 +168,8 @@ export interface BulkFixCompleteMessage {
   successful: number;
   failed: number;
   errors: string[];
+  /** Detailed list of all fix actions performed */
+  actions?: FixActionDetail[];
 }
 
 export interface BulkDetachCompleteMessage {
@@ -145,5 +187,6 @@ export type PluginToUIMessage =
   | ErrorMessage
   | TokensLoadedMessage
   | FixAppliedMessage
+  | FixProgressMessage
   | BulkFixCompleteMessage
   | BulkDetachCompleteMessage;
