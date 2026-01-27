@@ -227,6 +227,23 @@ body {
   cursor: not-allowed;
 }
 
+/* Apply Style button (for text styles) */
+.btn-apply-style {
+  background-color: #0ea5e9;
+  color: white;
+  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.btn-apply-style:hover {
+  background-color: #0284c7;
+}
+
+.btn-apply-style:disabled {
+  background-color: var(--figma-color-border);
+  cursor: not-allowed;
+}
+
 /* Select dropdown */
 .select {
   padding: var(--space-xs) var(--space-sm);
@@ -1147,4 +1164,68 @@ body {
   flex-shrink: 0;
   font-size: 9px;
   color: var(--figma-color-text-tertiary);
+}
+
+/* =============================================
+   Ignored State
+   ============================================= */
+.result-item.ignored {
+  opacity: 0.5;
+}
+
+.result-item.ignored .severity-indicator {
+  background-color: var(--figma-color-text-tertiary);
+}
+
+.ignored-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 500;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background-color: var(--figma-color-text-tertiary);
+  color: white;
+  margin-right: var(--space-xs);
+  text-transform: uppercase;
+}
+
+/* Ignore button */
+.btn-ignore {
+  background-color: var(--figma-color-text-tertiary);
+  color: white;
+  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.btn-ignore:hover {
+  background-color: var(--figma-color-text-secondary);
+}
+
+.btn-ignore:disabled {
+  background-color: var(--figma-color-border);
+  cursor: not-allowed;
+}
+
+/* =============================================
+   All Issues Resolved Success State
+   ============================================= */
+.results-success {
+  color: var(--color-success);
+}
+
+.results-success-icon {
+  margin-bottom: var(--space-md);
+  color: var(--color-success);
+}
+
+.results-success-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-success);
+  margin-bottom: var(--space-xs);
+}
+
+.results-success-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--figma-color-text-secondary);
 }

@@ -11,7 +11,7 @@ export interface FixActionDetail {
   nodeId: string;
   nodeName: string;
   property: string;
-  actionType: 'rebind' | 'unbind' | 'detach';
+  actionType: 'rebind' | 'unbind' | 'detach' | 'apply-style' | 'ignore';
   beforeValue: string;
   afterValue: string;
   status: 'success' | 'failed';
@@ -93,6 +93,14 @@ export interface AutoFixPathMismatchesMessage {
   }>;
 }
 
+export interface ApplyTextStyleMessage {
+  type: 'APPLY_TEXT_STYLE';
+  nodeId: string;
+  textStyleId: string;
+  /** Original property from the violation (e.g., 'fontSize', 'lineHeight') for tracking fixes */
+  property: string;
+}
+
 /** Message sent from UI to plugin with loaded token files */
 export interface TokenFilesLoadedMessage {
   type: 'TOKEN_FILES_LOADED';
@@ -100,6 +108,18 @@ export interface TokenFilesLoadedMessage {
     path: string;
     content: Record<string, unknown>;
   }>;
+}
+
+/** Message to save ignored violations to persistent storage */
+export interface SaveIgnoredViolationsMessage {
+  type: 'SAVE_IGNORED_VIOLATIONS';
+  /** Array of violation keys in format "nodeId:property" */
+  ignoredKeys: string[];
+}
+
+/** Message to request loading ignored violations from storage */
+export interface LoadIgnoredViolationsMessage {
+  type: 'LOAD_IGNORED_VIOLATIONS';
 }
 
 export type UIToPluginMessage =
@@ -114,7 +134,10 @@ export type UIToPluginMessage =
   | DetachStyleMessage
   | BulkDetachStylesMessage
   | AutoFixPathMismatchesMessage
-  | TokenFilesLoadedMessage;
+  | ApplyTextStyleMessage
+  | TokenFilesLoadedMessage
+  | SaveIgnoredViolationsMessage
+  | LoadIgnoredViolationsMessage;
 
 // Messages from Plugin to UI
 
@@ -163,7 +186,7 @@ export interface FixAppliedMessage {
   /** Value after the fix was applied */
   afterValue?: string;
   /** Type of fix action performed */
-  actionType?: 'rebind' | 'unbind' | 'detach';
+  actionType?: 'rebind' | 'unbind' | 'detach' | 'apply-style';
 }
 
 export interface FixProgressMessage {
@@ -189,6 +212,13 @@ export interface BulkDetachCompleteMessage {
   errors: string[];
 }
 
+/** Message returning loaded ignored violations from storage */
+export interface IgnoredViolationsLoadedMessage {
+  type: 'IGNORED_VIOLATIONS_LOADED';
+  /** Array of violation keys in format "nodeId:property" */
+  ignoredKeys: string[];
+}
+
 export type PluginToUIMessage =
   | ScanStartedMessage
   | ScanProgressMessage
@@ -199,4 +229,5 @@ export type PluginToUIMessage =
   | FixAppliedMessage
   | FixProgressMessage
   | BulkFixCompleteMessage
-  | BulkDetachCompleteMessage;
+  | BulkDetachCompleteMessage
+  | IgnoredViolationsLoadedMessage;

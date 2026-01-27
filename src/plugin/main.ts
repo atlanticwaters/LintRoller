@@ -22,7 +22,8 @@ import { FigmaScanner } from './scanner';
 import { PropertyInspector } from './inspector';
 import { createRules } from './rules';
 import { getLocalVariables, buildMatchedVariableIdSet } from './variables';
-import { applyFix, applyBulkFix, unbindVariable, detachStyle, bulkDetachStyles } from './fixer';
+import { applyFix, applyBulkFix, unbindVariable, detachStyle, bulkDetachStyles, applyTextStyle } from './fixer';
+import { clearTextStyleCache } from './rules/no-hardcoded-typography';
 
 // Plugin state
 let tokenCollection: TokenCollection | null = null;
@@ -153,6 +154,9 @@ async function handleStartScan(scope: ScanScope, config: LintConfig): Promise<vo
   const startTime = Date.now();
 
   try {
+    // Clear cached text styles so they're reloaded for this scan
+    clearTextStyleCache();
+
     // Update config
     currentConfig = config;
 
@@ -437,6 +441,66 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
           errors: pathMismatchResult.errors,
           actions: pathMismatchResult.actions,
         });
+      }
+      break;
+
+    case 'APPLY_TEXT_STYLE':
+      {
+        console.log('[Plugin] APPLY_TEXT_STYLE:', msg.nodeId, msg.textStyleId, msg.property);
+        const result = await applyTextStyle(msg.nodeId, msg.textStyleId);
+
+        // Get node name for display
+        let nodeName = 'Unknown';
+        try {
+          const node = await figma.getNodeByIdAsync(msg.nodeId);
+          if (node && 'name' in node) {
+            nodeName = node.name;
+          }
+        } catch {
+          // Ignore error
+        }
+
+        postMessage({
+          type: 'FIX_APPLIED',
+          success: result.success,
+          nodeId: msg.nodeId,
+          property: msg.property,
+          message: result.message,
+          nodeName,
+          beforeValue: result.beforeValue,
+          afterValue: result.afterValue,
+          actionType: result.actionType,
+        });
+      }
+      break;
+
+    case 'SAVE_IGNORED_VIOLATIONS':
+      {
+        try {
+          await figma.clientStorage.setAsync('ignoredViolations', msg.ignoredKeys);
+          console.log('[Plugin] Saved', msg.ignoredKeys.length, 'ignored violations to storage');
+        } catch (error) {
+          console.error('[Plugin] Failed to save ignored violations:', error);
+        }
+      }
+      break;
+
+    case 'LOAD_IGNORED_VIOLATIONS':
+      {
+        try {
+          const ignoredKeys = await figma.clientStorage.getAsync('ignoredViolations') as string[] | undefined;
+          postMessage({
+            type: 'IGNORED_VIOLATIONS_LOADED',
+            ignoredKeys: ignoredKeys || [],
+          });
+          console.log('[Plugin] Loaded', (ignoredKeys || []).length, 'ignored violations from storage');
+        } catch (error) {
+          console.error('[Plugin] Failed to load ignored violations:', error);
+          postMessage({
+            type: 'IGNORED_VIOLATIONS_LOADED',
+            ignoredKeys: [],
+          });
+        }
       }
       break;
   }

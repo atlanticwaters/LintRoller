@@ -19,7 +19,7 @@ export interface FixResult {
   /** Value after the fix was applied */
   afterValue?: string;
   /** Type of fix action performed */
-  actionType?: 'rebind' | 'unbind' | 'detach';
+  actionType?: 'rebind' | 'unbind' | 'detach' | 'apply-style';
 }
 
 /**
@@ -299,6 +299,7 @@ async function applyNumberFix(
  * Note: Only paragraphSpacing can be bound to variables on text nodes.
  * fontSize, lineHeight, and letterSpacing are per-character range properties
  * and cannot be bound to variables through the standard API.
+ * For these properties, use "Apply Style" to apply an existing text style instead.
  */
 async function applyTypographyFix(
   node: SceneNode,
@@ -330,11 +331,10 @@ async function applyTypographyFix(
       case 'fontSize':
       case 'lineHeight':
       case 'letterSpacing':
-        // These properties are per-character-range and cannot be bound to variables
-        // through the standard Figma plugin API. The user would need to use text styles instead.
+        // These properties cannot be bound to variables - must use text styles
         return {
           success: false,
-          message: property + ' cannot be bound to a variable. Use a text style instead.',
+          message: property + ' cannot be bound to variables. Use "Apply Style" with an existing text style instead.',
         };
 
       default:
@@ -344,7 +344,7 @@ async function applyTypographyFix(
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     return {
       success: false,
-      message: 'Failed to apply typography variable: ' + errorMsg,
+      message: 'Failed to apply typography fix: ' + errorMsg,
     };
   }
 }
@@ -736,8 +736,8 @@ export async function detachStyle(
           const textNode = sceneNode as TextNode;
           const rawStyleId = textNode.textStyleId;
           const beforeValue = typeof rawStyleId === 'symbol' ? 'mixed' : (rawStyleId || 'none');
-          // Setting textStyleId to empty string detaches the style
-          textNode.textStyleId = '';
+          // Setting textStyleId to empty string detaches the style (use async method)
+          await textNode.setTextStyleIdAsync('');
           return {
             success: true,
             message: 'Text style detached',
@@ -805,4 +805,47 @@ export async function bulkDetachStyles(
   }
 
   return { successful, failed, errors };
+}
+
+/**
+ * Apply a text style to a text node
+ */
+export async function applyTextStyle(
+  nodeId: string,
+  textStyleId: string
+): Promise<FixResult> {
+  console.log('[Fixer] applyTextStyle called:', { nodeId, textStyleId });
+
+  try {
+    const node = await figma.getNodeByIdAsync(nodeId);
+    if (!node || node.type !== 'TEXT') {
+      return { success: false, message: 'Node not found or not a text node: ' + nodeId };
+    }
+
+    const textNode = node as TextNode;
+
+    // Get the text style
+    const style = await figma.getStyleByIdAsync(textStyleId);
+    if (!style || style.type !== 'TEXT') {
+      return { success: false, message: 'Text style not found: ' + textStyleId };
+    }
+
+    // Capture before value
+    const rawStyleId = textNode.textStyleId;
+    const beforeValue = typeof rawStyleId === 'symbol' ? 'mixed styles' : (rawStyleId || 'no style');
+
+    // Apply the text style using async method (required for dynamic-page access)
+    await textNode.setTextStyleIdAsync(textStyleId);
+
+    return {
+      success: true,
+      beforeValue,
+      afterValue: style.name,
+      actionType: 'apply-style',
+    };
+  } catch (error) {
+    const msg = 'Apply text style error: ' + (error instanceof Error ? error.message : 'Unknown error');
+    console.error('[Fixer]', msg, error);
+    return { success: false, message: msg };
+  }
 }

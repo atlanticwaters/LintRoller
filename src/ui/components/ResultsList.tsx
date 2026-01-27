@@ -16,7 +16,10 @@ interface ResultsListProps {
   onUnbind: (violation: LintViolation) => void;
   onDetach: (violation: LintViolation) => void;
   onBulkDetach: (violations: LintViolation[]) => void;
+  onApplyStyle: (violation: LintViolation) => void;
+  onIgnore: (violation: LintViolation) => void;
   fixedViolations: Set<string>;
+  ignoredViolations: Set<string>;
   isFixing: boolean;
   fixableCount: number;
 }
@@ -45,7 +48,10 @@ export function ResultsList({
   onUnbind,
   onDetach,
   onBulkDetach,
+  onApplyStyle,
+  onIgnore,
   fixedViolations,
+  ignoredViolations,
   isFixing,
   fixableCount
 }: ResultsListProps) {
@@ -91,14 +97,29 @@ export function ResultsList({
     return fixedViolations.has(violation.nodeId + ':' + violation.property);
   };
 
-  // Get fixable violations for a group
-  const getFixableViolations = (violations: LintViolation[]) => {
-    return violations.filter(v => v.suggestedToken && !isFixed(v));
+  // Check if a violation is ignored
+  const isIgnored = (violation: LintViolation) => {
+    return ignoredViolations.has(violation.nodeId + ':' + violation.property);
   };
 
-  // Get detachable violations for a group
+  // Check if a violation is dismissed (fixed or ignored)
+  const isDismissed = (violation: LintViolation) => {
+    return isFixed(violation) || isIgnored(violation);
+  };
+
+  // Get remaining (not dismissed) violations for a group
+  const getRemainingViolations = (violations: LintViolation[]) => {
+    return violations.filter(v => !isDismissed(v));
+  };
+
+  // Get fixable violations for a group (only from remaining)
+  const getFixableViolations = (violations: LintViolation[]) => {
+    return violations.filter(v => v.suggestedToken && !isDismissed(v));
+  };
+
+  // Get detachable violations for a group (only from remaining)
   const getDetachableViolations = (violations: LintViolation[]) => {
-    return violations.filter(v => v.canDetach && !isFixed(v));
+    return violations.filter(v => v.canDetach && !isDismissed(v));
   };
 
   if (!results) {
@@ -116,16 +137,47 @@ export function ResultsList({
   if (results.violations.length === 0) {
     return (
       <div className="results-container">
-        <div className="results-empty">
-          <div className="results-empty-icon">v</div>
-          <p>No issues found!</p>
-          <p>All checked nodes use proper design tokens</p>
+        <div className="results-empty results-success">
+          <div className="results-success-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="24" cy="24" r="22" stroke="currentColor" strokeWidth="3" />
+              <path d="M14 24L21 31L34 18" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <p className="results-success-title">No issues found!</p>
+          <p className="results-success-subtitle">All checked nodes use proper design tokens</p>
         </div>
       </div>
     );
   }
 
-  const groupKeys = Object.keys(groups);
+  // Calculate total remaining violations
+  const totalRemaining = results.violations.filter(v => !isDismissed(v)).length;
+  const totalDismissed = fixedViolations.size + ignoredViolations.size;
+
+  // Show "all resolved" state if all violations are dismissed
+  if (totalRemaining === 0 && totalDismissed > 0) {
+    return (
+      <div className="results-container">
+        <div className="results-empty results-success">
+          <div className="results-success-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="24" cy="24" r="22" stroke="currentColor" strokeWidth="3" />
+              <path d="M14 24L21 31L34 18" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <p className="results-success-title">All issues resolved!</p>
+          <p className="results-success-subtitle">{totalDismissed} issue{totalDismissed !== 1 ? 's' : ''} fixed or ignored</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Filter to only groups with remaining violations
+  const groupKeys = Object.keys(groups).filter(key => {
+    const remaining = getRemainingViolations(groups[key]);
+    return remaining.length > 0;
+  });
 
   return (
     <div className="results-container">
@@ -158,12 +210,13 @@ export function ResultsList({
 
       <div style={{ padding: 'var(--space-sm)' }}>
         {groupKeys.map(key => {
-          const violations = groups[key];
+          const allViolations = groups[key];
+          const remainingViolations = getRemainingViolations(allViolations);
           const isExpanded = expandedGroups.has(key);
           const groupName =
-            groupBy === 'rule' ? RULE_NAMES[key as LintRuleId] || key : violations[0]?.nodeName || key;
-          const fixableInGroup = getFixableViolations(violations);
-          const detachableInGroup = getDetachableViolations(violations);
+            groupBy === 'rule' ? RULE_NAMES[key as LintRuleId] || key : allViolations[0]?.nodeName || key;
+          const fixableInGroup = getFixableViolations(allViolations);
+          const detachableInGroup = getDetachableViolations(allViolations);
           const isUnknownStylesGroup = key === 'no-unknown-styles';
 
           return (
@@ -200,13 +253,13 @@ export function ResultsList({
                       Detach All ({detachableInGroup.length})
                     </button>
                   )}
-                  <span className="results-group-count">{violations.length}</span>
+                  <span className="results-group-count">{remainingViolations.length}</span>
                 </div>
               </div>
 
               {isExpanded && (
                 <div className="results-group-items">
-                  {violations.map(violation => (
+                  {remainingViolations.map(violation => (
                     <ResultItem
                       key={violation.id}
                       violation={violation}
@@ -216,7 +269,10 @@ export function ResultsList({
                       onFix={() => onFix(violation)}
                       onUnbind={() => onUnbind(violation)}
                       onDetach={() => onDetach(violation)}
+                      onApplyStyle={() => onApplyStyle(violation)}
+                      onIgnore={() => onIgnore(violation)}
                       isFixed={isFixed(violation)}
+                      isIgnored={isIgnored(violation)}
                       isFixing={isFixing}
                     />
                   ))}

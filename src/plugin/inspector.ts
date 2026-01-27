@@ -104,6 +104,25 @@ export class PropertyInspector {
     const results: PropertyInspection[] = [];
     const boundVars = (node.boundVariables as Record<string, { id: string } | undefined>) || {};
 
+    // If a text style is applied, skip typography checks
+    // Text styles control fontSize, lineHeight, and letterSpacing
+    const textStyleId = node.textStyleId;
+    const hasTextStyle = textStyleId && textStyleId !== '' && typeof textStyleId !== 'symbol';
+
+    if (hasTextStyle) {
+      // Text style is applied, so typography is properly managed
+      // Only check paragraphSpacing which is independent of text styles
+      if (typeof node.paragraphSpacing === 'number' && node.paragraphSpacing > 0) {
+        results.push({
+          property: 'paragraphSpacing',
+          isBound: !!boundVars.paragraphSpacing?.id,
+          boundVariableId: boundVars.paragraphSpacing?.id,
+          rawValue: node.paragraphSpacing,
+        });
+      }
+      return results;
+    }
+
     // Font size
     if (node.fontSize !== figma.mixed) {
       results.push({

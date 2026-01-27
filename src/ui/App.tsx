@@ -33,9 +33,11 @@ export function App() {
   const [groupBy, setGroupBy] = useState<'rule' | 'node'>('rule');
   const [tokenCount, setTokenCount] = useState(0);
   const [fixedViolations, setFixedViolations] = useState<Set<string>>(new Set());
+  const [ignoredViolations, setIgnoredViolations] = useState<Set<string>>(new Set());
   const [fixActions, setFixActions] = useState<FixActionDetail[]>([]);
   const [fixProgress, setFixProgress] = useState<{ current: number; total: number } | null>(null);
   const [showActivityLog, setShowActivityLog] = useState(false);
+  const [ignoredViolationsLoaded, setIgnoredViolationsLoaded] = useState(false);
 
   // Send message to plugin
   const postMessage = useCallback((message: UIToPluginMessage) => {
@@ -63,6 +65,7 @@ export function App() {
         case 'SCAN_STARTED':
           setProgress({ processed: 0, total: msg.totalNodes });
           setFixedViolations(new Set()); // Reset fixed violations on new scan
+          // Note: Do NOT reset ignoredViolations - they persist across scans
           setFixActions([]); // Reset activity log on new scan
           setFixProgress(null);
           setShowActivityLog(false);
@@ -161,6 +164,13 @@ export function App() {
           }
           break;
 
+        case 'IGNORED_VIOLATIONS_LOADED':
+          // Restore ignored violations from storage
+          setIgnoredViolations(new Set(msg.ignoredKeys));
+          setIgnoredViolationsLoaded(true);
+          console.log('[UI] Loaded', msg.ignoredKeys.length, 'ignored violations from storage');
+          break;
+
         case 'ERROR':
           console.error('Plugin error:', msg.message);
           setIsScanning(false);
@@ -193,6 +203,22 @@ export function App() {
     }
     loadAndSendTokens();
   }, [postMessage]);
+
+  // Load ignored violations from storage on mount
+  useEffect(() => {
+    postMessage({ type: 'LOAD_IGNORED_VIOLATIONS' });
+  }, [postMessage]);
+
+  // Save ignored violations to storage whenever they change
+  useEffect(() => {
+    // Only save after initial load from storage completes
+    if (!ignoredViolationsLoaded) return;
+
+    postMessage({
+      type: 'SAVE_IGNORED_VIOLATIONS',
+      ignoredKeys: Array.from(ignoredViolations),
+    });
+  }, [ignoredViolations, ignoredViolationsLoaded, postMessage]);
 
   // Select a node in Figma
   const handleSelectNode = useCallback(
@@ -281,6 +307,48 @@ export function App() {
       });
     },
     [postMessage]
+  );
+
+  // Apply a text style to a node (for typography violations)
+  const handleApplyStyle = useCallback(
+    (violation: LintViolation) => {
+      if (!violation.suggestedTextStyle) return;
+
+      setIsFixing(true);
+      postMessage({
+        type: 'APPLY_TEXT_STYLE',
+        nodeId: violation.nodeId,
+        textStyleId: violation.suggestedTextStyle.id,
+        property: violation.property,
+      });
+    },
+    [postMessage]
+  );
+
+  // Ignore a violation (for items that can't be fixed)
+  const handleIgnore = useCallback(
+    (violation: LintViolation) => {
+      const key = violation.nodeId + ':' + violation.property;
+      setIgnoredViolations(prev => {
+        const next = new Set(prev);
+        next.add(key);
+        return next;
+      });
+
+      // Add to activity log
+      const ignoreAction: FixActionDetail = {
+        nodeId: violation.nodeId,
+        nodeName: violation.nodeName,
+        property: violation.property,
+        actionType: 'ignore',
+        beforeValue: String(violation.currentValue),
+        afterValue: 'ignored',
+        status: 'success',
+        timestamp: Date.now(),
+      };
+      setFixActions(prev => [...prev, ignoreAction]);
+    },
+    []
   );
 
   // Auto-fix all path mismatches
@@ -392,7 +460,7 @@ export function App() {
 
       {view === 'results' && (
         <>
-          {results && <Summary results={results} />}
+          {results && <Summary results={results} fixedViolations={fixedViolations} ignoredViolations={ignoredViolations} />}
 
           {results && results.violations.length > 0 && (
             <>
@@ -426,7 +494,10 @@ export function App() {
             onUnbind={handleUnbind}
             onDetach={handleDetach}
             onBulkDetach={handleBulkDetach}
+            onApplyStyle={handleApplyStyle}
+            onIgnore={handleIgnore}
             fixedViolations={fixedViolations}
+            ignoredViolations={ignoredViolations}
             isFixing={isFixing}
             fixableCount={fixableCount}
           />

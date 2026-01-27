@@ -13,7 +13,10 @@ interface ResultItemProps {
   onFix: () => void;
   onUnbind: () => void;
   onDetach: () => void;
+  onApplyStyle: () => void;
+  onIgnore: () => void;
   isFixed: boolean;
+  isIgnored: boolean;
   isFixing: boolean;
 }
 
@@ -49,15 +52,18 @@ function getConfidenceLabel(confidence?: MatchConfidence): string {
   }
 }
 
-export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, onFix, onUnbind, onDetach, isFixed, isFixing }: ResultItemProps) {
+export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, onFix, onUnbind, onDetach, onApplyStyle, onIgnore, isFixed, isIgnored, isFixing }: ResultItemProps) {
   const [showAlternatives, setShowAlternatives] = useState(false);
   const hasAlternatives = violation.alternativeTokens && violation.alternativeTokens.length > 0;
-  const canFix = violation.suggestedToken && !isFixed;
-  const canUnbind = violation.canUnbind && !isFixed;
-  const canDetach = violation.canDetach && !isFixed;
+  const isDismissed = isFixed || isIgnored;
+  const canFix = violation.suggestedToken && !isDismissed;
+  const canUnbind = violation.canUnbind && !isDismissed;
+  const canDetach = violation.canDetach && !isDismissed;
+  const canApplyStyle = violation.canApplyTextStyle && violation.suggestedTextStyle && !isDismissed;
+  const canIgnore = violation.canIgnore && !isDismissed;
 
   return (
-    <div className={'result-item ' + violation.severity + (isFixed ? ' fixed' : '')} onClick={onSelect}>
+    <div className={'result-item ' + violation.severity + (isFixed ? ' fixed' : '') + (isIgnored ? ' ignored' : '')} onClick={onSelect}>
       <div className="severity-indicator" />
 
       <div className="content">
@@ -70,7 +76,8 @@ export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, on
 
         <div className="message">
           {isFixed && <span className="fixed-badge">Fixed</span>}
-          {violation.isPathMismatch && !isFixed && (
+          {isIgnored && <span className="ignored-badge">Ignored</span>}
+          {violation.isPathMismatch && !isDismissed && (
             <span className="path-mismatch-badge" title="Auto-fixable: Only path syntax differs (/ vs .)">
               Path Mismatch
             </span>
@@ -78,7 +85,7 @@ export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, on
           {violation.message}
         </div>
 
-        {violation.suggestedToken && !isFixed && (
+        {violation.suggestedToken && !isDismissed && (
           <div className={'suggestion ' + getConfidenceClass(violation.suggestionConfidence)}>
             <span className="suggestion-label">
               {violation.suggestionConfidence && (
@@ -102,7 +109,7 @@ export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, on
           </div>
         )}
 
-        {showAlternatives && hasAlternatives && !isFixed && (
+        {showAlternatives && hasAlternatives && !isDismissed && (
           <div className="alternatives-list">
             {violation.alternativeTokens!.map((alt, idx) => (
               <div key={idx} className="alternative-item">
@@ -112,6 +119,17 @@ export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, on
                 </span>
               </div>
             ))}
+          </div>
+        )}
+
+        {violation.suggestedTextStyle && !isDismissed && (
+          <div className={'suggestion ' + (violation.suggestedTextStyle.matchQuality === 'exact' ? 'confidence-exact' : 'confidence-close')}>
+            <span className="suggestion-label">
+              <span className={'confidence-badge ' + (violation.suggestedTextStyle.matchQuality === 'exact' ? 'confidence-exact' : 'confidence-close')}>
+                {violation.suggestedTextStyle.matchQuality === 'exact' ? 'Exact match' : 'Partial match'}
+              </span>
+              Apply style: <code>{violation.suggestedTextStyle.name}</code>
+            </span>
           </div>
         )}
       </div>
@@ -154,6 +172,32 @@ export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, on
             title="Detach style (keeps current appearance)"
           >
             Detach
+          </button>
+        )}
+        {canApplyStyle && (
+          <button
+            className="btn btn-apply-style"
+            onClick={e => {
+              e.stopPropagation();
+              onApplyStyle();
+            }}
+            disabled={isFixing}
+            title={'Apply text style: ' + violation.suggestedTextStyle!.name}
+          >
+            Apply Style
+          </button>
+        )}
+        {canIgnore && (
+          <button
+            className="btn btn-ignore"
+            onClick={e => {
+              e.stopPropagation();
+              onIgnore();
+            }}
+            disabled={isFixing}
+            title="Ignore this issue (no matching style within tolerance)"
+          >
+            Ignore
           </button>
         )}
         <button className="btn btn-icon select-btn" onClick={e => { e.stopPropagation(); onSelect(); }} title="Select in Figma">

@@ -175,6 +175,30 @@ export interface LintViolation {
   isPathMismatch?: boolean;
   /** The correct token path after normalization (for path mismatches) */
   normalizedMatchPath?: string;
+  /** Suggested text style to apply (for typography properties that can't use variables) */
+  suggestedTextStyle?: TextStyleSuggestion;
+  /** Whether this violation can be fixed by applying a text style */
+  canApplyTextStyle?: boolean;
+  /** Whether this violation can be ignored (no fix available within tolerance) */
+  canIgnore?: boolean;
+}
+
+/**
+ * Text style suggestion for typography violations
+ */
+export interface TextStyleSuggestion {
+  /** Figma text style ID */
+  id: string;
+  /** Text style name */
+  name: string;
+  /** Font size of the style */
+  fontSize?: number;
+  /** Line height of the style */
+  lineHeight?: number;
+  /** Letter spacing of the style */
+  letterSpacing?: number;
+  /** How well this style matches the current value */
+  matchQuality: 'exact' | 'partial';
 }
 
 /**
