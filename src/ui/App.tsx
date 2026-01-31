@@ -109,12 +109,22 @@ export function App() {
           setFixActions(prev => [...prev, fixAction]);
 
           if (msg.success) {
-            // Mark this violation as fixed
+            // Mark violations as fixed
             setFixedViolations(prev => {
               const next = new Set(prev);
               // Create a unique key for this violation
               const key = msg.nodeId + ':' + msg.property;
               next.add(key);
+
+              // If this was a text style application, mark ALL typography violations
+              // for the same node as fixed, since text styles affect all typography properties
+              if (msg.actionType === 'apply-style') {
+                const typographyProps = ['fontSize', 'lineHeight', 'letterSpacing'];
+                for (const prop of typographyProps) {
+                  next.add(msg.nodeId + ':' + prop);
+                }
+              }
+
               return next;
             });
           } else {
