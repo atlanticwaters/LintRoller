@@ -24,6 +24,7 @@ import { createRules } from './rules';
 import { getLocalVariables, buildMatchedVariableIdSet } from './variables';
 import { applyFix, applyBulkFix, unbindVariable, detachStyle, bulkDetachStyles, applyTextStyle } from './fixer';
 import { clearTextStyleCache } from './rules/no-hardcoded-typography';
+import { syncTokensToVariables, resetVariables, getSyncStatus, analyzeSyncDiff } from './sync';
 
 // Plugin state
 let tokenCollection: TokenCollection | null = null;
@@ -499,6 +500,121 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
           postMessage({
             type: 'IGNORED_VIOLATIONS_LOADED',
             ignoredKeys: [],
+          });
+        }
+      }
+      break;
+
+    case 'GET_SYNC_STATUS':
+      {
+        if (!tokenCollection) {
+          postMessage({ type: 'ERROR', message: 'Tokens not loaded yet' });
+          break;
+        }
+        try {
+          const status = await getSyncStatus(tokenCollection);
+          postMessage({
+            type: 'SYNC_STATUS',
+            ...status,
+          });
+        } catch (error) {
+          console.error('[Plugin] Failed to get sync status:', error);
+          postMessage({ type: 'ERROR', message: 'Failed to get sync status' });
+        }
+      }
+      break;
+
+    case 'GET_SYNC_DIFF':
+      {
+        if (!tokenCollection) {
+          postMessage({ type: 'ERROR', message: 'Tokens not loaded yet' });
+          break;
+        }
+        try {
+          const diff = await analyzeSyncDiff(tokenCollection, loadedThemeConfigs, msg.options);
+          postMessage({
+            type: 'SYNC_DIFF',
+            ...diff,
+          });
+        } catch (error) {
+          console.error('[Plugin] Failed to analyze sync diff:', error);
+          postMessage({ type: 'ERROR', message: 'Failed to analyze sync diff' });
+        }
+      }
+      break;
+
+    case 'START_SYNC':
+      {
+        if (!tokenCollection) {
+          postMessage({ type: 'ERROR', message: 'Tokens not loaded yet' });
+          break;
+        }
+        try {
+          console.log('[Plugin] Starting sync with options:', msg.options);
+          const result = await syncTokensToVariables(
+            tokenCollection,
+            loadedThemeConfigs,
+            msg.options,
+            (progress) => {
+              postMessage({
+                type: 'SYNC_PROGRESS',
+                ...progress,
+              });
+            }
+          );
+          postMessage({
+            type: 'SYNC_COMPLETE',
+            ...result,
+          });
+        } catch (error) {
+          console.error('[Plugin] Sync failed:', error);
+          postMessage({
+            type: 'SYNC_COMPLETE',
+            success: false,
+            created: 0,
+            updated: 0,
+            deleted: 0,
+            skipped: 0,
+            errors: [error instanceof Error ? error.message : 'Unknown error'],
+            collections: [],
+          });
+        }
+      }
+      break;
+
+    case 'RESET_VARIABLES':
+      {
+        if (!tokenCollection) {
+          postMessage({ type: 'ERROR', message: 'Tokens not loaded yet' });
+          break;
+        }
+        try {
+          console.log('[Plugin] Resetting variables to match token source');
+          const result = await resetVariables(
+            tokenCollection,
+            loadedThemeConfigs,
+            (progress) => {
+              postMessage({
+                type: 'SYNC_PROGRESS',
+                ...progress,
+              });
+            }
+          );
+          postMessage({
+            type: 'SYNC_COMPLETE',
+            ...result,
+          });
+        } catch (error) {
+          console.error('[Plugin] Reset failed:', error);
+          postMessage({
+            type: 'SYNC_COMPLETE',
+            success: false,
+            created: 0,
+            updated: 0,
+            deleted: 0,
+            skipped: 0,
+            errors: [error instanceof Error ? error.message : 'Unknown error'],
+            collections: [],
           });
         }
       }

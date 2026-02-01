@@ -18,9 +18,10 @@ import { FixStatusBar } from './components/FixStatusBar';
 import { ActivityLog } from './components/ActivityLog';
 import { ResultsList } from './components/ResultsList';
 import { ConfigPanel } from './components/ConfigPanel';
+import { SyncPanel } from './components/SyncPanel';
 import { loadTokenFiles } from './tokens-loader';
 
-type View = 'results' | 'config';
+type View = 'results' | 'config' | 'sync';
 
 export function App() {
   const [config, setConfig] = useState<LintConfig>(getDefaultConfig());
@@ -515,6 +516,8 @@ export function App() {
       )}
 
       {view === 'config' && <ConfigPanel config={config} onChange={handleConfigChange} />}
+
+      {view === 'sync' && <SyncPanel tokenCount={tokenCount} />}
     </div>
   );
 }

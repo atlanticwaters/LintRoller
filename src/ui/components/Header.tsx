@@ -12,8 +12,8 @@ interface HeaderProps {
   onScopeChange: (scope: ScanScope['type']) => void;
   onExport: (format: 'json' | 'csv') => void;
   hasResults: boolean;
-  view: 'results' | 'config';
-  onViewChange: (view: 'results' | 'config') => void;
+  view: 'results' | 'config' | 'sync';
+  onViewChange: (view: 'results' | 'config' | 'sync') => void;
 }
 
 export function Header({
@@ -79,12 +79,30 @@ export function Header({
           )}
         </div>
 
+      </div>
+
+      {/* View Tabs */}
+      <div className="header-tabs">
         <button
-          className="btn btn-icon"
-          onClick={() => onViewChange(view === 'results' ? 'config' : 'results')}
-          title={view === 'results' ? 'Settings' : 'Results'}
+          type="button"
+          className={`tab ${view === 'sync' ? 'active' : ''}`}
+          onClick={() => onViewChange('sync')}
         >
-          {view === 'results' ? '\u2699' : '\u2190'}
+          Sync
+        </button>
+        <button
+          type="button"
+          className={`tab ${view === 'results' ? 'active' : ''}`}
+          onClick={() => onViewChange('results')}
+        >
+          Lint
+        </button>
+        <button
+          type="button"
+          className={`tab ${view === 'config' ? 'active' : ''}`}
+          onClick={() => onViewChange('config')}
+        >
+          Config
         </button>
       </div>
     </header>

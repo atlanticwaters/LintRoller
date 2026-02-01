@@ -1,5 +1,22 @@
 "use strict";
 (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __propIsEnum = Object.prototype.propertyIsEnumerable;
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __spreadValues = (a, b) => {
+    for (var prop in b || (b = {}))
+      if (__hasOwnProp.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    if (__getOwnPropSymbols)
+      for (var prop of __getOwnPropSymbols(b)) {
+        if (__propIsEnum.call(b, prop))
+          __defNormalProp(a, prop, b[prop]);
+      }
+    return a;
+  };
+
   // src/shared/types.ts
   function getDefaultConfig() {
     return {
@@ -2682,6 +2699,436 @@
     }
   }
 
+  // src/plugin/sync.ts
+  function getTokenLayer(token) {
+    const sourceFile = token.sourceFile.toLowerCase();
+    if (sourceFile.includes("core") || sourceFile.includes("primitives")) {
+      return "core";
+    }
+    if (sourceFile.includes("semantic")) {
+      return "semantic";
+    }
+    if (sourceFile.includes("component")) {
+      return "component";
+    }
+    if (token.path.startsWith("system.") || token.path.startsWith("core.")) {
+      return "core";
+    }
+    if (token.path.startsWith("component.")) {
+      return "component";
+    }
+    return "semantic";
+  }
+  function tokenPathToVariableName(tokenPath) {
+    return tokenPath.replace(/\./g, "/");
+  }
+  function variableNameToTokenPath(variableName) {
+    return variableName.replace(/\//g, ".");
+  }
+  function getVariableType(token) {
+    switch (token.type) {
+      case "color":
+        return "COLOR";
+      case "number":
+      case "dimension":
+        return "FLOAT";
+      default:
+        return "FLOAT";
+    }
+  }
+  function hexToFigmaRGB(hex) {
+    const cleanHex = hex.replace("#", "");
+    const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
+    const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
+    const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+    return { r, g, b };
+  }
+  function parseDimension(value) {
+    if (typeof value === "number") {
+      return value;
+    }
+    const numericValue = parseFloat(value.replace(/[^0-9.-]/g, ""));
+    return isNaN(numericValue) ? 0 : numericValue;
+  }
+  function tokenValueToFigmaValue(token) {
+    const value = token.resolvedValue;
+    switch (token.type) {
+      case "color":
+        if (typeof value === "string" && value.startsWith("#")) {
+          return hexToFigmaRGB(value);
+        }
+        return null;
+      case "number":
+        if (typeof value === "number") {
+          return value;
+        }
+        if (typeof value === "string") {
+          const num = parseFloat(value);
+          return isNaN(num) ? null : num;
+        }
+        return null;
+      case "dimension":
+        return parseDimension(value);
+      default:
+        if (typeof value === "number") {
+          return value;
+        }
+        if (typeof value === "string") {
+          const num = parseFloat(value);
+          if (!isNaN(num)) {
+            return num;
+          }
+        }
+        return null;
+    }
+  }
+  async function getOrCreateCollection(name, modes) {
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
+    let collection = collections.find((c) => c.name === name);
+    if (!collection) {
+      collection = figma.variables.createVariableCollection(name);
+      console.log(`[Sync] Created collection: ${name}`);
+    }
+    const existingModeNames = collection.modes.map((m) => m.name);
+    for (const modeName of modes) {
+      if (!existingModeNames.includes(modeName)) {
+        if (collection.modes.length === 1 && collection.modes[0].name === "Mode 1") {
+          collection.renameMode(collection.modes[0].modeId, modeName);
+          console.log(`[Sync] Renamed default mode to: ${modeName}`);
+        } else {
+          collection.addMode(modeName);
+          console.log(`[Sync] Added mode: ${modeName}`);
+        }
+      }
+    }
+    return collection;
+  }
+  async function findVariableByName(collection, name) {
+    for (const varId of collection.variableIds) {
+      try {
+        const variable = await figma.variables.getVariableByIdAsync(varId);
+        if (variable && variable.name === name) {
+          return variable;
+        }
+      } catch (e) {
+      }
+    }
+    return null;
+  }
+  function getModeValues(token, tokens, themes, collection) {
+    const modeValues = /* @__PURE__ */ new Map();
+    const baseValue = tokenValueToFigmaValue(token);
+    if (baseValue === null) {
+      return modeValues;
+    }
+    const layer = getTokenLayer(token);
+    if (layer === "semantic") {
+      for (const mode of collection.modes) {
+        const modeName = mode.name.toLowerCase();
+        let modeValue = baseValue;
+        const matchingTheme = themes.find(
+          (t) => t.name.toLowerCase().includes(modeName) || t.group && t.group.toLowerCase().includes(modeName)
+        );
+        if (matchingTheme) {
+        }
+        modeValues.set(mode.modeId, modeValue);
+      }
+    } else {
+      for (const mode of collection.modes) {
+        modeValues.set(mode.modeId, baseValue);
+      }
+    }
+    return modeValues;
+  }
+  function valuesEqual(a, b) {
+    if (typeof a === "number" && typeof b === "number") {
+      return Math.abs(a - b) < 1e-4;
+    }
+    if (typeof a === "object" && typeof b === "object" && a !== null && b !== null) {
+      const aRGB = a;
+      const bRGB = b;
+      return Math.abs(aRGB.r - bRGB.r) < 1e-4 && Math.abs(aRGB.g - bRGB.g) < 1e-4 && Math.abs(aRGB.b - bRGB.b) < 1e-4;
+    }
+    return a === b;
+  }
+  async function analyzeSyncDiff(tokens, themes, options = {}) {
+    var _a, _b, _c, _d;
+    const diff = {
+      toCreate: [],
+      toUpdate: [],
+      toDelete: [],
+      unchanged: 0
+    };
+    const collectionNames = {
+      core: ((_a = options.collectionNames) == null ? void 0 : _a.core) || "Core",
+      semantic: ((_b = options.collectionNames) == null ? void 0 : _b.semantic) || "Semantic",
+      component: ((_c = options.collectionNames) == null ? void 0 : _c.component) || "Component"
+    };
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
+    const collectionsByName = /* @__PURE__ */ new Map();
+    for (const col of collections) {
+      collectionsByName.set(col.name, col);
+    }
+    const seenVariableIds = /* @__PURE__ */ new Set();
+    for (const [tokenPath, token] of tokens.tokens) {
+      const figmaValue = tokenValueToFigmaValue(token);
+      if (figmaValue === null) {
+        continue;
+      }
+      const layer = getTokenLayer(token);
+      const collectionName = collectionNames[layer];
+      const variableName = tokenPathToVariableName(tokenPath);
+      const collection = collectionsByName.get(collectionName);
+      if (!collection) {
+        diff.toCreate.push({
+          path: tokenPath,
+          layer,
+          value: token.resolvedValue
+        });
+        continue;
+      }
+      const existingVariable = await findVariableByName(collection, variableName);
+      if (!existingVariable) {
+        diff.toCreate.push({
+          path: tokenPath,
+          layer,
+          value: token.resolvedValue
+        });
+        continue;
+      }
+      seenVariableIds.add(existingVariable.id);
+      const modeId = collection.modes[0].modeId;
+      const currentValue = existingVariable.valuesByMode[modeId];
+      if (!valuesEqual(currentValue, figmaValue)) {
+        diff.toUpdate.push({
+          path: tokenPath,
+          layer,
+          oldValue: typeof currentValue === "object" ? JSON.stringify(currentValue) : currentValue,
+          newValue: token.resolvedValue
+        });
+      } else {
+        diff.unchanged++;
+      }
+    }
+    if (options.deleteOrphans) {
+      for (const [name, collection] of collectionsByName) {
+        if (!Object.values(collectionNames).includes(name)) {
+          continue;
+        }
+        const layer = (_d = Object.entries(collectionNames).find(([, v]) => v === name)) == null ? void 0 : _d[0];
+        if (!layer) continue;
+        for (const varId of collection.variableIds) {
+          if (!seenVariableIds.has(varId)) {
+            const variable = await figma.variables.getVariableByIdAsync(varId);
+            if (variable) {
+              diff.toDelete.push({
+                path: variableNameToTokenPath(variable.name),
+                layer,
+                variableId: varId
+              });
+            }
+          }
+        }
+      }
+    }
+    return diff;
+  }
+  async function syncTokensToVariables(tokens, themes, options = {}, onProgress) {
+    var _a, _b, _c, _d, _e, _f;
+    const opts = {
+      createNew: (_a = options.createNew) != null ? _a : true,
+      updateExisting: (_b = options.updateExisting) != null ? _b : true,
+      deleteOrphans: (_c = options.deleteOrphans) != null ? _c : false,
+      collectionNames: {
+        core: ((_d = options.collectionNames) == null ? void 0 : _d.core) || "Core",
+        semantic: ((_e = options.collectionNames) == null ? void 0 : _e.semantic) || "Semantic",
+        component: ((_f = options.collectionNames) == null ? void 0 : _f.component) || "Component"
+      }
+    };
+    const result = {
+      success: true,
+      created: 0,
+      updated: 0,
+      deleted: 0,
+      skipped: 0,
+      errors: [],
+      collections: []
+    };
+    try {
+      const modeNames = [];
+      for (const theme of themes) {
+        if (theme.name && !modeNames.includes(theme.name)) {
+          modeNames.push(theme.name);
+        }
+      }
+      if (modeNames.length === 0) {
+        modeNames.push("Light", "Dark");
+      }
+      onProgress == null ? void 0 : onProgress({
+        phase: "analyzing",
+        current: 0,
+        total: tokens.tokens.size,
+        message: "Analyzing tokens..."
+      });
+      const tokensByLayer = /* @__PURE__ */ new Map();
+      tokensByLayer.set("core", []);
+      tokensByLayer.set("semantic", []);
+      tokensByLayer.set("component", []);
+      for (const token of tokens.tokens.values()) {
+        const layer = getTokenLayer(token);
+        tokensByLayer.get(layer).push(token);
+      }
+      const layers = ["core", "semantic", "component"];
+      let totalProcessed = 0;
+      const totalTokens = tokens.tokens.size;
+      for (const layer of layers) {
+        const layerTokens = tokensByLayer.get(layer) || [];
+        if (layerTokens.length === 0) continue;
+        const collectionName = opts.collectionNames[layer];
+        const collection = await getOrCreateCollection(collectionName, modeNames);
+        const collectionResult = {
+          collectionId: collection.id,
+          collectionName,
+          layer,
+          variablesCreated: 0,
+          variablesUpdated: 0,
+          variablesDeleted: 0
+        };
+        const existingVarNames = /* @__PURE__ */ new Set();
+        for (const varId of collection.variableIds) {
+          const variable = await figma.variables.getVariableByIdAsync(varId);
+          if (variable) {
+            existingVarNames.add(variable.name);
+          }
+        }
+        for (const token of layerTokens) {
+          totalProcessed++;
+          const variableName = tokenPathToVariableName(token.path);
+          const figmaValue = tokenValueToFigmaValue(token);
+          if (figmaValue === null) {
+            result.skipped++;
+            continue;
+          }
+          const variableType = getVariableType(token);
+          onProgress == null ? void 0 : onProgress({
+            phase: existingVarNames.has(variableName) ? "updating" : "creating",
+            current: totalProcessed,
+            total: totalTokens,
+            message: `Processing ${token.path}`
+          });
+          try {
+            const existingVariable = await findVariableByName(collection, variableName);
+            if (existingVariable) {
+              if (opts.updateExisting) {
+                const modeValues = getModeValues(token, tokens, themes, collection);
+                for (const [modeId, value] of modeValues) {
+                  existingVariable.setValueForMode(modeId, value);
+                }
+                collectionResult.variablesUpdated++;
+                result.updated++;
+              } else {
+                result.skipped++;
+              }
+              existingVarNames.delete(variableName);
+            } else if (opts.createNew) {
+              const variable = figma.variables.createVariable(
+                variableName,
+                collection,
+                variableType
+              );
+              if (token.description) {
+                variable.description = token.description;
+              }
+              const modeValues = getModeValues(token, tokens, themes, collection);
+              for (const [modeId, value] of modeValues) {
+                variable.setValueForMode(modeId, value);
+              }
+              collectionResult.variablesCreated++;
+              result.created++;
+            }
+          } catch (error) {
+            const errorMsg = `Failed to sync ${token.path}: ${error instanceof Error ? error.message : "Unknown error"}`;
+            result.errors.push(errorMsg);
+            console.error("[Sync]", errorMsg);
+          }
+        }
+        if (opts.deleteOrphans) {
+          for (const orphanName of existingVarNames) {
+            onProgress == null ? void 0 : onProgress({
+              phase: "deleting",
+              current: totalProcessed,
+              total: totalTokens,
+              message: `Removing orphaned: ${orphanName}`
+            });
+            try {
+              const orphanVariable = await findVariableByName(collection, orphanName);
+              if (orphanVariable) {
+                orphanVariable.remove();
+                collectionResult.variablesDeleted++;
+                result.deleted++;
+              }
+            } catch (error) {
+              result.errors.push(`Failed to delete ${orphanName}: ${error instanceof Error ? error.message : "Unknown error"}`);
+            }
+          }
+        }
+        result.collections.push(collectionResult);
+      }
+      onProgress == null ? void 0 : onProgress({
+        phase: "complete",
+        current: totalTokens,
+        total: totalTokens,
+        message: `Sync complete: ${result.created} created, ${result.updated} updated`
+      });
+    } catch (error) {
+      result.success = false;
+      result.errors.push(`Sync failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+      console.error("[Sync] Fatal error:", error);
+    }
+    return result;
+  }
+  async function resetVariables(tokens, themes, onProgress) {
+    return syncTokensToVariables(tokens, themes, {
+      createNew: false,
+      updateExisting: true,
+      deleteOrphans: false
+    }, onProgress);
+  }
+  async function getSyncStatus(tokens, collectionNames) {
+    const names = {
+      core: (collectionNames == null ? void 0 : collectionNames.core) || "Core",
+      semantic: (collectionNames == null ? void 0 : collectionNames.semantic) || "Semantic",
+      component: (collectionNames == null ? void 0 : collectionNames.component) || "Component"
+    };
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
+    let totalVariables = 0;
+    const collectionInfo = [];
+    for (const [layer, name] of Object.entries(names)) {
+      const collection = collections.find((c) => c.name === name);
+      if (collection) {
+        totalVariables += collection.variableIds.length;
+        collectionInfo.push({
+          name,
+          layer,
+          variableCount: collection.variableIds.length,
+          modeCount: collection.modes.length
+        });
+      }
+    }
+    let syncableTokens = 0;
+    for (const token of tokens.tokens.values()) {
+      if (tokenValueToFigmaValue(token) !== null) {
+        syncableTokens++;
+      }
+    }
+    return {
+      totalTokens: syncableTokens,
+      totalVariables,
+      collections: collectionInfo,
+      syncedPercentage: syncableTokens > 0 ? Math.round(totalVariables / syncableTokens * 100) : 0
+    };
+  }
+
   // src/plugin/main.ts
   var tokenCollection = null;
   var loadedThemeConfigs = [];
@@ -3054,6 +3501,111 @@
             postMessage({
               type: "IGNORED_VIOLATIONS_LOADED",
               ignoredKeys: []
+            });
+          }
+        }
+        break;
+      case "GET_SYNC_STATUS":
+        {
+          if (!tokenCollection) {
+            postMessage({ type: "ERROR", message: "Tokens not loaded yet" });
+            break;
+          }
+          try {
+            const status = await getSyncStatus(tokenCollection);
+            postMessage(__spreadValues({
+              type: "SYNC_STATUS"
+            }, status));
+          } catch (error) {
+            console.error("[Plugin] Failed to get sync status:", error);
+            postMessage({ type: "ERROR", message: "Failed to get sync status" });
+          }
+        }
+        break;
+      case "GET_SYNC_DIFF":
+        {
+          if (!tokenCollection) {
+            postMessage({ type: "ERROR", message: "Tokens not loaded yet" });
+            break;
+          }
+          try {
+            const diff = await analyzeSyncDiff(tokenCollection, loadedThemeConfigs, msg.options);
+            postMessage(__spreadValues({
+              type: "SYNC_DIFF"
+            }, diff));
+          } catch (error) {
+            console.error("[Plugin] Failed to analyze sync diff:", error);
+            postMessage({ type: "ERROR", message: "Failed to analyze sync diff" });
+          }
+        }
+        break;
+      case "START_SYNC":
+        {
+          if (!tokenCollection) {
+            postMessage({ type: "ERROR", message: "Tokens not loaded yet" });
+            break;
+          }
+          try {
+            console.log("[Plugin] Starting sync with options:", msg.options);
+            const result = await syncTokensToVariables(
+              tokenCollection,
+              loadedThemeConfigs,
+              msg.options,
+              (progress) => {
+                postMessage(__spreadValues({
+                  type: "SYNC_PROGRESS"
+                }, progress));
+              }
+            );
+            postMessage(__spreadValues({
+              type: "SYNC_COMPLETE"
+            }, result));
+          } catch (error) {
+            console.error("[Plugin] Sync failed:", error);
+            postMessage({
+              type: "SYNC_COMPLETE",
+              success: false,
+              created: 0,
+              updated: 0,
+              deleted: 0,
+              skipped: 0,
+              errors: [error instanceof Error ? error.message : "Unknown error"],
+              collections: []
+            });
+          }
+        }
+        break;
+      case "RESET_VARIABLES":
+        {
+          if (!tokenCollection) {
+            postMessage({ type: "ERROR", message: "Tokens not loaded yet" });
+            break;
+          }
+          try {
+            console.log("[Plugin] Resetting variables to match token source");
+            const result = await resetVariables(
+              tokenCollection,
+              loadedThemeConfigs,
+              (progress) => {
+                postMessage(__spreadValues({
+                  type: "SYNC_PROGRESS"
+                }, progress));
+              }
+            );
+            postMessage(__spreadValues({
+              type: "SYNC_COMPLETE"
+            }, result));
+          } catch (error) {
+            console.error("[Plugin] Reset failed:", error);
+            postMessage({
+              type: "SYNC_COMPLETE",
+              success: false,
+              created: 0,
+              updated: 0,
+              deleted: 0,
+              skipped: 0,
+              errors: [error instanceof Error ? error.message : "Unknown error"],
+              collections: []
             });
           }
         }
