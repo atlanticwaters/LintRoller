@@ -1,0 +1,72 @@
+{
+  "Progress-Bar": {
+    "icon": {
+      "Default": {
+        "$type": "color",
+        "$value": "{system.icon.on-container-color.tertiary}"
+      }
+    },
+    "size": {
+      "Default": {
+        "$type": "number",
+        "$value": "{system.dimension.size.sm}"
+      }
+    },
+    "color": {
+      "Default": {
+        "$type": "color",
+        "$value": "{color.brand.brand-200}"
+      }
+    },
+    "border": {
+      "stroke": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.border.container-color.primary}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{system.border.container-color.primary}"
+      }
+    },
+    "radius": {
+      "corner": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.radius.full}"
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-1}"
+        }
+      },
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-7}"
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-0}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.icon.on-container-color.tertiary}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{system.background.accent-color.green-accent-2}"
+      }
+    }
+  }
+}

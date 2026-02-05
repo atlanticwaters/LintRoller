@@ -1,0 +1,54 @@
+{
+  "Tab-Group": {
+    "icon": {
+      "Default": {
+        "$type": "color",
+        "$value": "{component.icon.selector-color.filled.selected}"
+      }
+    },
+    "size": {
+      "Default": {
+        "$type": "number",
+        "$value": "{system.dimension.size.md}"
+      }
+    },
+    "radius": {
+      "corner": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.radius.lg}"
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      },
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-12}"
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.selector-color.filled.selected}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{component.background.selector-color.filled.selected}"
+      }
+    }
+  }
+}

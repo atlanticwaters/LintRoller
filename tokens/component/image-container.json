@@ -1,0 +1,24 @@
+{
+  "Image-Container": {
+    "radius": {
+      "corner": {
+        "Default": {
+          "$type": "number",
+          "$value": "{border.width.border-width-7}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.background.container-color.greige}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{system.background.container-color.greige}"
+      }
+    }
+  }
+}

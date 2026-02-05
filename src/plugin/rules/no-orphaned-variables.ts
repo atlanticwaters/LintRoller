@@ -14,6 +14,39 @@ import { findClosestColors, getDeltaEDescription } from '../../shared/color-dist
 import { rgbToHex } from '../inspector';
 import { normalizePath } from '../../shared/path-utils';
 
+/** Node types that typically represent icons (vector shapes) */
+const ICON_NODE_TYPES = ['VECTOR', 'BOOLEAN_OPERATION', 'STAR', 'LINE', 'ELLIPSE', 'POLYGON'];
+
+/**
+ * Get context keywords to prefer in token paths based on property and node type.
+ */
+function getContextKeywords(property: string, nodeType: string): string[] {
+  if (property.includes('stroke')) return ['border'];
+  if (property.includes('fill')) {
+    if (nodeType === 'TEXT') return ['text'];
+    if (ICON_NODE_TYPES.includes(nodeType)) return ['icon'];
+    return ['background'];
+  }
+  return [];
+}
+
+/**
+ * Pick the most contextually appropriate token from a list of candidate paths.
+ */
+function pickContextualToken(tokenPaths: string[], keywords: string[]): string {
+  if (keywords.length === 0 || tokenPaths.length <= 1) {
+    return tokenPaths[0];
+  }
+  for (const keyword of keywords) {
+    const match = tokenPaths.find(p => {
+      const segments = p.toLowerCase().split(/[./]/);
+      return segments.includes(keyword);
+    });
+    if (match) return match;
+  }
+  return tokenPaths[0];
+}
+
 /** Maximum Delta E for color suggestions (expanded to always show closest options) */
 const MAX_COLOR_DELTA_E = 50;
 
@@ -98,6 +131,16 @@ export class NoOrphanedVariablesRule extends LintRule {
           continue;
         }
 
+        // Skip semantic variables (system/, component/, or in semantic collections).
+        // These are valid bindings even if they aren't in the token set — the orphaned
+        // rule should only flag core/primitive variables that clearly need replacement.
+        const normalizedVarName = normalizePath(variableInfo.name);
+        const normalizedCollName = normalizePath(variableInfo.collectionName);
+        if (normalizedVarName.startsWith('system/') || normalizedVarName.startsWith('component/') ||
+            normalizedCollName === 'system' || normalizedCollName.includes('semantic') || normalizedCollName.includes('component')) {
+          continue;
+        }
+
         // Check for path syntax mismatch (/ vs . notation)
         // This detects cases where the variable and token are the same after normalization
         const pathMismatchToken = this.findPathMismatchToken(variableInfo.name);
@@ -125,7 +168,8 @@ export class NoOrphanedVariablesRule extends LintRule {
         const suggestion = await this.findReplacementToken(
           inspection.boundVariableId,
           variableInfo,
-          inspection.property
+          inspection.property,
+          node.type
         );
 
         let message = `Variable "${variableInfo.name}" is not defined in the token set`;
@@ -189,7 +233,7 @@ export class NoOrphanedVariablesRule extends LintRule {
       if (property.includes('fills') || property.includes('strokes')) {
         if (rawValue && typeof rawValue === 'object' && 'r' in rawValue) {
           const colorValue = rawValue as { r: number; g: number; b: number; a?: number };
-          return this.findColorReplacement(colorValue);
+          return this.findColorReplacement(colorValue, property, node.type);
         }
       }
 
@@ -227,7 +271,8 @@ export class NoOrphanedVariablesRule extends LintRule {
   private async findReplacementToken(
     variableId: string,
     variableInfo: VariableInfo,
-    property: string
+    property: string,
+    nodeType: string
   ): Promise<{
     suggestedToken?: string;
     confidence?: MatchConfidence;
@@ -247,7 +292,7 @@ export class NoOrphanedVariablesRule extends LintRule {
       }
 
       const defaultModeId = collection.defaultModeId;
-      const value = variable.valuesByMode[defaultModeId];
+      let value = variable.valuesByMode[defaultModeId];
 
       if (value === undefined) {
         return {};
@@ -255,8 +300,22 @@ export class NoOrphanedVariablesRule extends LintRule {
 
       // Handle based on variable type
       if (variableInfo.resolvedType === 'COLOR') {
-        return this.findColorReplacement(value);
+        // If value is a VariableAlias, resolve it to RGBA
+        if (typeof value === 'object' && value !== null && 'type' in value &&
+            (value as { type: string }).type === 'VARIABLE_ALIAS') {
+          const resolved = await this.resolveVariableAlias(value as { type: string; id: string });
+          if (!resolved) return {};
+          value = resolved;
+        }
+        return this.findColorReplacement(value, property, nodeType);
       } else if (variableInfo.resolvedType === 'FLOAT') {
+        // If value is a VariableAlias, resolve it to number
+        if (typeof value === 'object' && value !== null && 'type' in value &&
+            (value as { type: string }).type === 'VARIABLE_ALIAS') {
+          const resolved = await this.resolveVariableAlias(value as { type: string; id: string });
+          if (typeof resolved !== 'number') return {};
+          value = resolved;
+        }
         return this.findNumberReplacement(value as number, property);
       }
 
@@ -268,9 +327,46 @@ export class NoOrphanedVariablesRule extends LintRule {
   }
 
   /**
+   * Resolve a VariableAlias chain to its final value
+   */
+  private async resolveVariableAlias(
+    alias: { type: string; id: string },
+    visited?: Set<string>
+  ): Promise<VariableValue | null> {
+    const seen = visited || new Set<string>();
+    if (seen.has(alias.id)) return null;
+    seen.add(alias.id);
+
+    try {
+      const variable = await figma.variables.getVariableByIdAsync(alias.id);
+      if (!variable) return null;
+
+      const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+      if (!collection) return null;
+
+      const value = variable.valuesByMode[collection.defaultModeId];
+      if (value === undefined || value === null) return null;
+
+      // Check if it's another alias
+      if (typeof value === 'object' && 'type' in value &&
+          (value as { type: string }).type === 'VARIABLE_ALIAS') {
+        return this.resolveVariableAlias(value as { type: string; id: string }, seen);
+      }
+
+      return value;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Find a replacement color token
    */
-  private findColorReplacement(value: VariableValue): {
+  private findColorReplacement(
+    value: VariableValue,
+    property?: string,
+    nodeType?: string
+  ): {
     suggestedToken?: string;
     confidence?: MatchConfidence;
     alternatives?: TokenSuggestion[];
@@ -300,11 +396,24 @@ export class NoOrphanedVariablesRule extends LintRule {
       return {};
     }
 
-    const bestMatch = matches[0];
+    let bestMatch = matches[0];
     let confidence: MatchConfidence;
 
     if (bestMatch.isExact) {
       confidence = 'exact';
+
+      // For exact matches, use context-aware selection from all token paths at this hex
+      if (property && nodeType && this.tokens.colorTokensByHex) {
+        const allPaths = this.tokens.colorTokensByHex.get(bestMatch.tokenHex.toLowerCase());
+        if (allPaths && allPaths.length > 1) {
+          const keywords = getContextKeywords(property, nodeType);
+          const contextual = pickContextualToken(allPaths, keywords);
+          if (contextual && contextual !== bestMatch.tokenPath) {
+            console.log(`[OrphanedVariables] Context override: ${bestMatch.tokenPath} → ${contextual} (keywords: ${keywords.join(',')})`);
+            bestMatch = { ...bestMatch, tokenPath: contextual };
+          }
+        }
+      }
     } else if (bestMatch.deltaE < 2) {
       confidence = 'close';
     } else {

@@ -2,7 +2,7 @@
  * Message types for Plugin <-> UI communication
  */
 
-import type { LintConfig, LintResults, ScanScope } from './types';
+import type { LintConfig, LintResults, ScanScope, TokenSource } from './types';
 
 /**
  * Detailed information about a fix action for activity logging
@@ -122,6 +122,17 @@ export interface LoadIgnoredViolationsMessage {
   type: 'LOAD_IGNORED_VIOLATIONS';
 }
 
+/** Message to save token source preference to persistent storage */
+export interface SaveTokenSourceMessage {
+  type: 'SAVE_TOKEN_SOURCE';
+  source: TokenSource;
+}
+
+/** Message to request loading token source preference from storage */
+export interface LoadTokenSourceMessage {
+  type: 'LOAD_TOKEN_SOURCE';
+}
+
 // Sync-related messages
 
 /** Options for sync operation */
@@ -174,6 +185,8 @@ export type UIToPluginMessage =
   | TokenFilesLoadedMessage
   | SaveIgnoredViolationsMessage
   | LoadIgnoredViolationsMessage
+  | SaveTokenSourceMessage
+  | LoadTokenSourceMessage
   | GetSyncStatusMessage
   | GetSyncDiffMessage
   | StartSyncMessage
@@ -259,6 +272,12 @@ export interface IgnoredViolationsLoadedMessage {
   ignoredKeys: string[];
 }
 
+/** Message returning loaded token source preference from storage */
+export interface TokenSourceLoadedMessage {
+  type: 'TOKEN_SOURCE_LOADED';
+  source: TokenSource;
+}
+
 // Sync response messages
 
 /** Sync status response */
@@ -324,6 +343,7 @@ export type PluginToUIMessage =
   | BulkFixCompleteMessage
   | BulkDetachCompleteMessage
   | IgnoredViolationsLoadedMessage
+  | TokenSourceLoadedMessage
   | SyncStatusMessage
   | SyncDiffMessage
   | SyncProgressMessage

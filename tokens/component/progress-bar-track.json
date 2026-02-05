@@ -1,0 +1,48 @@
+{
+  "Progress-Bar-Track": {
+    "color": {
+      "Default": {
+        "$type": "color",
+        "$value": "{color.brand.brand-200}"
+      }
+    },
+    "radius": {
+      "corner": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.radius.full}"
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-0}"
+        }
+      },
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-7}"
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-0}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.background.accent-color.green-accent-2}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{system.background.accent-color.green-accent-2}"
+      }
+    }
+  }
+}

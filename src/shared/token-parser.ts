@@ -274,6 +274,7 @@ export class TokenParser {
     const tokens = new Map(this.resolvedTokens);
     const byType = new Map<TokenType, ResolvedToken[]>();
     const colorValues = new Map<string, string>();
+    const colorTokensByHex = new Map<string, string[]>();
     const numberValues = new Map<number, string[]>();
     const colorLab = new Map<string, LAB>();
 
@@ -294,9 +295,16 @@ export class TokenParser {
           const isSemantic = this.isSemanticToken(token);
           const existingIsSemantic = colorIsSemanticMap.get(hex) || false;
 
-          // Store this token if:
-          // 1. No token stored yet for this hex, OR
-          // 2. This is a semantic token and the existing one is not
+          // Store ALL token paths per hex (semantic first) for contextual lookup
+          const allPaths = colorTokensByHex.get(hex) || [];
+          if (isSemantic) {
+            allPaths.unshift(token.path);
+          } else {
+            allPaths.push(token.path);
+          }
+          colorTokensByHex.set(hex, allPaths);
+
+          // Store the single "best" token for default (non-contextual) suggestions
           if (!colorValues.has(hex) || (isSemantic && !existingIsSemantic)) {
             colorValues.set(hex, token.path);
             colorIsSemanticMap.set(hex, isSemantic);
@@ -329,6 +337,7 @@ export class TokenParser {
       tokens,
       byType,
       colorValues,
+      colorTokensByHex,
       numberValues,
       colorLab,
     };

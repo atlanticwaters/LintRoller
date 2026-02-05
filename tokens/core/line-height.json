@@ -1,0 +1,18 @@
+{
+  "font": {
+    "line-height": {
+      "base": {
+        "$type": "text",
+        "$value": "150%"
+      },
+      "none": {
+        "$type": "text",
+        "$value": "100%"
+      },
+      "tight": {
+        "$type": "text",
+        "$value": "125%"
+      }
+    }
+  }
+}

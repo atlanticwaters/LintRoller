@@ -1,0 +1,50 @@
+{
+  "List-Item": {
+    "icon": {
+      "Default": {
+        "$type": "color",
+        "$value": "{system.icon.on-container-color.primary}"
+      }
+    },
+    "size": {
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-15}"
+      }
+    },
+    "text": {
+      "Default": {
+        "$type": "color",
+        "$value": "{system.text.on-container-color.primary}"
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-2}"
+        }
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-6}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.text.on-container-color.primary}"
+        }
+      }
+    },
+    "font-weight": {
+      "Default": {
+        "$type": "string",
+        "$value": "{font.font-weight.body.regular}"
+      }
+    }
+  }
+}

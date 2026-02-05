@@ -8,6 +8,9 @@ import type { NumberMatch } from './number-matching';
 // Re-export for convenience
 export type { LAB, ColorMatch, NumberMatch };
 
+/** Token source selection */
+export type TokenSource = 'local' | 'github';
+
 // DTCG Token Types
 export type TokenType = 'color' | 'number' | 'dimension' | 'text' | 'shadow' | 'typography';
 
@@ -51,8 +54,10 @@ export interface TokenCollection {
   tokens: Map<string, ResolvedToken>;
   /** Tokens grouped by type */
   byType: Map<TokenType, ResolvedToken[]>;
-  /** Color hex values to token paths (lowercase) */
+  /** Color hex values to token paths — one "best" per hex (lowercase) */
   colorValues: Map<string, string>;
+  /** Color hex values to ALL token paths with that color (for contextual lookup) */
+  colorTokensByHex: Map<string, string[]>;
   /** Number values to token paths (for spacing, radius, etc.) */
   numberValues: Map<number, string[]>;
   /** Pre-computed LAB values for color tokens (for Delta E calculations) */
@@ -97,7 +102,8 @@ export type LintRuleId =
   | 'no-hardcoded-spacing'
   | 'no-hardcoded-radii'
   | 'no-orphaned-variables'
-  | 'no-unknown-styles';
+  | 'no-unknown-styles'
+  | 'prefer-semantic-variables';
 
 export type Severity = 'error' | 'warning' | 'info';
 
@@ -263,6 +269,7 @@ export function getDefaultConfig(): LintConfig {
       'no-hardcoded-radii': { enabled: true, severity: 'warning' },
       'no-orphaned-variables': { enabled: true, severity: 'error' },
       'no-unknown-styles': { enabled: true, severity: 'warning' },
+      'prefer-semantic-variables': { enabled: true, severity: 'warning' },
     },
     skipHiddenLayers: true,
     skipLockedLayers: false,

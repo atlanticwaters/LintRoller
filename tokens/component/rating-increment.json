@@ -1,0 +1,42 @@
+{
+  "Rating-Increment": {
+    "icon": {
+      "Default": {
+        "$type": "color",
+        "$value": "{system.icon.on-surface-color.brand-accent-1}"
+      }
+    },
+    "size": {
+      "Default": {
+        "$type": "number",
+        "$value": "{system.dimension.size.sm}"
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-0}"
+        }
+      },
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-4}"
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-0}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.icon.on-surface-color.brand-accent-1}"
+        }
+      }
+    }
+  }
+}

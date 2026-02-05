@@ -13,6 +13,7 @@ import type {
   ScanScope,
   Severity,
   TokenCollection,
+  TokenSource,
   ThemeConfig,
 } from '../shared/types';
 import { getDefaultConfig } from '../shared/types';
@@ -123,6 +124,7 @@ function buildSummary(violations: LintViolation[]): LintSummary {
     'no-hardcoded-radii': 0,
     'no-orphaned-variables': 0,
     'no-unknown-styles': 0,
+    'prefer-semantic-variables': 0,
   };
 
   const bySeverity: Record<Severity, number> = {
@@ -301,7 +303,8 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
             msg.property,
             msg.tokenPath,
             msg.ruleId as LintRuleId,
-            loadedThemeConfigs
+            loadedThemeConfigs,
+            tokenCollection
           );
           console.log('[Plugin] APPLY_FIX result:', result);
           postMessage({
@@ -340,7 +343,8 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
               total: progress.total,
               currentAction: progress.currentAction,
             });
-          }
+          },
+          tokenCollection
         );
         postMessage({
           type: 'BULK_FIX_COMPLETE',
@@ -433,7 +437,8 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
               total: progress.total,
               currentAction: progress.currentAction,
             });
-          }
+          },
+          tokenCollection
         );
         postMessage({
           type: 'BULK_FIX_COMPLETE',
@@ -500,6 +505,36 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
           postMessage({
             type: 'IGNORED_VIOLATIONS_LOADED',
             ignoredKeys: [],
+          });
+        }
+      }
+      break;
+
+    case 'SAVE_TOKEN_SOURCE':
+      {
+        try {
+          await figma.clientStorage.setAsync('tokenSource', msg.source);
+          console.log('[Plugin] Saved token source preference:', msg.source);
+        } catch (error) {
+          console.error('[Plugin] Failed to save token source preference:', error);
+        }
+      }
+      break;
+
+    case 'LOAD_TOKEN_SOURCE':
+      {
+        try {
+          const source = await figma.clientStorage.getAsync('tokenSource') as TokenSource | undefined;
+          postMessage({
+            type: 'TOKEN_SOURCE_LOADED',
+            source: source || 'local',
+          });
+          console.log('[Plugin] Loaded token source preference:', source || 'local');
+        } catch (error) {
+          console.error('[Plugin] Failed to load token source preference:', error);
+          postMessage({
+            type: 'TOKEN_SOURCE_LOADED',
+            source: 'local',
           });
         }
       }

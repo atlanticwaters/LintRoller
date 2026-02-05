@@ -1,0 +1,32 @@
+{
+  "Field-Label": {
+    "text": {
+      "Default": {
+        "$type": "color",
+        "$value": "{system.text.on-surface-color.inactive}"
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.4xs}"
+        }
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.none}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.text.on-surface-color.inactive}"
+        }
+      }
+    }
+  }
+}

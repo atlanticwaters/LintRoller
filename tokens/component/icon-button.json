@@ -1,0 +1,414 @@
+{
+  "Icon-Button": {
+    "icon": {
+      "Ghost": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.ghost-filled.inactive}"
+        }
+      },
+      "White": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.ghost-filled.inactive}"
+        }
+      },
+      "Orange": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.orange-filled.default}"
+        }
+      },
+      "Black-5": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.transparent-05-filled.inactive}"
+        }
+      },
+      "Outline": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.orange-outline.inactive}"
+        }
+      },
+      "Black-10": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.transparent-10-filled.inactive}"
+        }
+      }
+    },
+    "size": {
+      "Ghost": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        }
+      },
+      "White": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        }
+      },
+      "Orange": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        }
+      },
+      "Black-5": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        }
+      },
+      "Outline": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        }
+      },
+      "Black-10": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        }
+      }
+    },
+    "color": {
+      "Ghost": {
+        "Default": {
+          "$type": "color",
+          "$value": "{color.transparent-black.transparent-black-075}"
+        }
+      },
+      "White": {
+        "Default": {
+          "$type": "color",
+          "$value": "{color.transparent-black.transparent-black-075}"
+        }
+      },
+      "Orange": {
+        "Default": {
+          "$type": "color",
+          "$value": "{color.greige.greige-300}"
+        }
+      },
+      "Black-5": {
+        "Default": {
+          "$type": "color",
+          "$value": "{color.transparent-black.transparent-black-100}"
+        }
+      },
+      "Outline": {
+        "Default": {
+          "$type": "color",
+          "$value": "{color.transparent-black.transparent-black-075}"
+        }
+      },
+      "Black-10": {
+        "Default": {
+          "$type": "color",
+          "$value": "{color.greige.greige-200}"
+        }
+      }
+    },
+    "border": {
+      "Orange": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.border.input-color.focus}"
+        }
+      },
+      "stroke": {
+        "Ghost": {
+          "Default": {
+            "$type": "color",
+            "$value": "{color.greige.greige-100}"
+          }
+        },
+        "White": {
+          "Default": {
+            "$type": "color",
+            "$value": "{color.greige.greige-100}"
+          }
+        },
+        "Orange": {
+          "Default": {
+            "$type": "color",
+            "$value": "{color.brand.brand-200}"
+          }
+        },
+        "Black-5": {
+          "Default": {
+            "$type": "color",
+            "$value": "{color.greige.greige-200}"
+          }
+        },
+        "Outline": {
+          "Default": {
+            "$type": "color",
+            "$value": "{color.greige.greige-300}"
+          }
+        },
+        "Black-10": {
+          "Default": {
+            "$type": "color",
+            "$value": "{color.greige.greige-200}"
+          }
+        }
+      },
+      "Outline": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.border.button-color.orange-outline.default}"
+        }
+      }
+    },
+    "radius": {
+      "corner": {
+        "Ghost": {
+          "Default": {
+            "$type": "number",
+            "$value": "{border.radius.border-radius-5}"
+          }
+        },
+        "White": {
+          "Default": {
+            "$type": "number",
+            "$value": "{border.radius.border-radius-5}"
+          }
+        },
+        "Orange": {
+          "Default": {
+            "$type": "number",
+            "$value": "{border.radius.border-radius-5}"
+          }
+        },
+        "Black-5": {
+          "Default": {
+            "$type": "number",
+            "$value": "{border.radius.border-radius-5}"
+          }
+        },
+        "Outline": {
+          "Default": {
+            "$type": "number",
+            "$value": "{border.radius.border-radius-5}"
+          }
+        },
+        "Black-10": {
+          "Default": {
+            "$type": "number",
+            "$value": "{border.radius.border-radius-5}"
+          }
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Ghost": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "White": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Orange": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Black-5": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Outline": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Black-10": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        }
+      },
+      "Ghost": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-12}"
+        }
+      },
+      "White": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-12}"
+        }
+      },
+      "Orange": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-12}"
+        }
+      },
+      "Black-5": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-12}"
+        }
+      },
+      "Outline": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-12}"
+        }
+      },
+      "padding": {
+        "Ghost": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.xs}"
+          }
+        },
+        "White": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.xs}"
+          }
+        },
+        "Orange": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.xs}"
+          }
+        },
+        "Black-5": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.xs}"
+          }
+        },
+        "Outline": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.xs}"
+          }
+        },
+        "Black-10": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.xs}"
+          }
+        }
+      },
+      "Black-10": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-12}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Ghost": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.ghost-filled.inactive}"
+          }
+        },
+        "White": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.ghost-filled.inactive}"
+          }
+        },
+        "Orange": {
+          "Default": {
+            "$type": "color",
+            "$value": "{color.greige.greige-300}"
+          }
+        },
+        "Black-5": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.transparent-05-filled.inactive}"
+          }
+        },
+        "Outline": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.orange-outline.inactive}"
+          }
+        },
+        "Black-10": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.transparent-10-filled.inactive}"
+          }
+        }
+      },
+      "Ghost": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.ghost-filled.default}"
+        }
+      },
+      "Orange": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.brand-filled.inactive}"
+        }
+      },
+      "Black-5": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.transparent-05.default}"
+        }
+      },
+      "Black-10": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.transparent-10.default}"
+        }
+      }
+    },
+    "border-width": {
+      "Orange": {
+        "Default": {
+          "$type": "number",
+          "$value": "{component.border.selector-color.outline.selected-accent}"
+        }
+      },
+      "Black-5": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.width.sm}"
+        }
+      },
+      "Outline": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.width.sm}"
+        }
+      },
+      "Black-10": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.width.sm}"
+        }
+      }
+    }
+  }
+}

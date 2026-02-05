@@ -1,0 +1,18 @@
+{
+  "chevron-xs": {
+    "icon": {
+      "Default": {
+        "$type": "color",
+        "$value": "{system.icon.on-surface-color.primary}"
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.icon.on-surface-color.primary}"
+        }
+      }
+    }
+  }
+}

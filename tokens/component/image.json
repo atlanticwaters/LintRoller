@@ -1,0 +1,12 @@
+{
+  "Image": {
+    "radius": {
+      "corner": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.radius.sm}"
+        }
+      }
+    }
+  }
+}

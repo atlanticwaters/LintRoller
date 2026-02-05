@@ -1,0 +1,50 @@
+{
+  "Input-Adornment": {
+    "size": {
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-9}"
+      }
+    },
+    "color": {
+      "Default": {
+        "$type": "color",
+        "$value": "{color.greige.greige-600}"
+      }
+    },
+    "radius": {
+      "corner": {
+        "Default": {
+          "$type": "number",
+          "$value": "{border.radius.border-radius-999}"
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.none}"
+        }
+      },
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-6}"
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.2xs}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{color.greige.greige-600}"
+        }
+      }
+    }
+  }
+}

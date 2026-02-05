@@ -1,0 +1,56 @@
+{
+  "font": {
+    "font-weight": {
+      "body": {
+        "bold": {
+          "$type": "text",
+          "$value": "Bold"
+        },
+        "light": {
+          "$type": "text",
+          "$value": "Light"
+        },
+        "medium": {
+          "$type": "text",
+          "$value": "Medium"
+        },
+        "regular": {
+          "$type": "text",
+          "$value": "Regular"
+        },
+        "semi-bold": {
+          "$type": "text",
+          "$value": "SemiBold"
+        }
+      },
+      "heading": {
+        "bold": {
+          "$type": "text",
+          "$value": "Bold"
+        },
+        "semi-bold": {
+          "$type": "text",
+          "$value": "SemiBold"
+        },
+        "extra-bold": {
+          "$type": "text",
+          "$value": "ExtraBold"
+        }
+      },
+      "condensed": {
+        "bold": {
+          "$type": "text",
+          "$value": "48"
+        },
+        "regular": {
+          "$type": "text",
+          "$value": "56"
+        },
+        "semi-bold": {
+          "$type": "text",
+          "$value": "37"
+        }
+      }
+    }
+  }
+}

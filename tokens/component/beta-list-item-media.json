@@ -1,0 +1,160 @@
+{
+  "BETA-List-Item-Media": {
+    "icon": {
+      "Icon": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.icon.on-container-color.primary}"
+        }
+      },
+      "Custom": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.icon.on-container-color.tertiary}"
+        }
+      }
+    },
+    "size": {
+      "Icon": {
+        "Default": {
+          "$type": "fontWeights",
+          "$value": "{font.font-weight.body.regular}"
+        }
+      },
+      "Custom": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      }
+    },
+    "color": {
+      "Icon": {
+        "Default": {
+          "$type": "color",
+          "$value": "{color.neutrals.transparent}"
+        }
+      },
+      "Payment": {
+        "Default": {
+          "$type": "color",
+          "$value": "{color.neutrals.black}"
+        }
+      }
+    },
+    "border": {
+      "Custom": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.border.container-color.primary}"
+        }
+      },
+      "stroke": {
+        "Custom": {
+          "Default": {
+            "$type": "number",
+            "$value": "{border.width.border-width-0}"
+          }
+        }
+      }
+    },
+    "radius": {
+      "corner": {
+        "Payment": {
+          "Default": {
+            "$type": "number",
+            "$value": "{border.radius.border-radius-3}"
+          }
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Icon": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          }
+        },
+        "Media": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          }
+        },
+        "Custom": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          }
+        },
+        "Payment": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          }
+        }
+      },
+      "padding": {
+        "Icon": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          }
+        },
+        "Media": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          }
+        },
+        "Custom": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          }
+        },
+        "Payment": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          }
+        }
+      }
+    },
+    "background": {
+      "Icon": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.background.container-color.transparent-10}"
+        }
+      },
+      "fill": {
+        "Icon": {
+          "Default": {
+            "$type": "color",
+            "$value": "{system.icon.on-container-color.primary}"
+          }
+        },
+        "Custom": {
+          "Default": {
+            "$type": "color",
+            "$value": "{system.icon.on-container-color.tertiary}"
+          }
+        },
+        "Payment": {
+          "Default": {
+            "$type": "color",
+            "$value": "{color.neutrals.black}"
+          }
+        }
+      },
+      "Custom": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.background.container-color.transparent-10}"
+        }
+      }
+    }
+  }
+}

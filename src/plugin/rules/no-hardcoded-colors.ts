@@ -18,6 +18,46 @@ interface RGB {
   b: number;
 }
 
+/** Node types that typically represent icons (vector shapes) */
+const ICON_NODE_TYPES = ['VECTOR', 'BOOLEAN_OPERATION', 'STAR', 'LINE', 'ELLIPSE', 'POLYGON'];
+
+/**
+ * Get context keywords to prefer in token paths based on property and node type.
+ * - Text fills → prefer "text" tokens
+ * - Vector/icon fills → prefer "icon" tokens
+ * - Frame/shape fills → prefer "background" tokens
+ * - Strokes → prefer "border" tokens
+ */
+function getContextKeywords(property: string, nodeType: string): string[] {
+  if (property.includes('stroke')) {
+    return ['border'];
+  }
+  if (property.includes('fill')) {
+    if (nodeType === 'TEXT') return ['text'];
+    if (ICON_NODE_TYPES.includes(nodeType)) return ['icon'];
+    return ['background'];
+  }
+  return [];
+}
+
+/**
+ * Pick the most contextually appropriate token from a list of candidate paths.
+ * Returns the first path that contains a matching keyword as a path segment.
+ */
+function pickContextualToken(tokenPaths: string[], keywords: string[]): string {
+  if (keywords.length === 0 || tokenPaths.length <= 1) {
+    return tokenPaths[0];
+  }
+  for (const keyword of keywords) {
+    const match = tokenPaths.find(p => {
+      const segments = p.toLowerCase().split(/[./]/);
+      return segments.includes(keyword);
+    });
+    if (match) return match;
+  }
+  return tokenPaths[0];
+}
+
 /** Maximum Delta E for "close" suggestions (colors within this range are good matches) */
 const CLOSE_DELTA_E = 10;
 
@@ -66,10 +106,19 @@ export class NoHardcodedColorsRule extends LintRule {
       // Find closest matching tokens
       const matches = this.findClosestColorTokens(hexColor);
 
-      // Debug: Log color matching details
-      console.log(`[NoHardcodedColors] Checking ${hexColor} - found ${matches.length} matches, colorValues size: ${this.tokens.colorValues.size}`);
-      if (matches.length > 0) {
-        console.log(`[NoHardcodedColors] Best match: ${matches[0].tokenPath} (deltaE: ${matches[0].deltaE})`);
+      // For exact matches, override with the most contextually appropriate token
+      // (e.g. text fills prefer "text/" tokens, strokes prefer "border/" tokens)
+      if (matches.length > 0 && matches[0].isExact && this.tokens.colorTokensByHex) {
+        const contextHex = matches[0].tokenHex.toLowerCase();
+        const allPaths = this.tokens.colorTokensByHex.get(contextHex);
+        if (allPaths && allPaths.length > 1) {
+          const keywords = getContextKeywords(inspection.property, node.type);
+          const contextual = pickContextualToken(allPaths, keywords);
+          if (contextual && contextual !== matches[0].tokenPath) {
+            console.log(`[NoHardcodedColors] Context override: ${matches[0].tokenPath} → ${contextual} (keywords: ${keywords.join(',')})`);
+            matches[0] = { ...matches[0], tokenPath: contextual };
+          }
+        }
       }
 
       let suggestedToken: string | undefined;

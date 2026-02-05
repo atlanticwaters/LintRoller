@@ -1,0 +1,170 @@
+{
+  "border": {
+    "width": {
+      "border-width-0": {
+        "$type": "number",
+        "$value": "0"
+      },
+      "border-width-1": {
+        "$type": "number",
+        "$value": "1"
+      },
+      "border-width-2": {
+        "$type": "number",
+        "$value": "2"
+      },
+      "border-width-3": {
+        "$type": "number",
+        "$value": "3"
+      },
+      "border-width-4": {
+        "$type": "number",
+        "$value": "4"
+      },
+      "border-width-5": {
+        "$type": "number",
+        "$value": "6"
+      },
+      "border-width-6": {
+        "$type": "number",
+        "$value": "8"
+      },
+      "border-width-7": {
+        "$type": "number",
+        "$value": "12"
+      },
+      "border-width-8": {
+        "$type": "number",
+        "$value": "16"
+      },
+      "border-width-9": {
+        "$type": "number",
+        "$value": "20"
+      },
+      "border-width-10": {
+        "$type": "number",
+        "$value": "24"
+      },
+      "border-width-11": {
+        "$type": "number",
+        "$value": "28"
+      },
+      "border-width-12": {
+        "$type": "number",
+        "$value": "32"
+      }
+    },
+    "radius": {
+      "border-radius-0": {
+        "$type": "number",
+        "$value": "0",
+        "$description": "0"
+      },
+      "border-radius-1": {
+        "$type": "number",
+        "$value": "1",
+        "$description": "1"
+      },
+      "border-radius-2": {
+        "$type": "number",
+        "$value": "2",
+        "$description": "2"
+      },
+      "border-radius-3": {
+        "$type": "number",
+        "$value": "3",
+        "$description": "3"
+      },
+      "border-radius-4": {
+        "$type": "number",
+        "$value": "4",
+        "$description": "4"
+      },
+      "border-radius-5": {
+        "$type": "number",
+        "$value": "6",
+        "$description": "6"
+      },
+      "border-radius-6": {
+        "$type": "number",
+        "$value": "8",
+        "$description": "8"
+      },
+      "border-radius-7": {
+        "$type": "number",
+        "$value": "12",
+        "$description": "12"
+      },
+      "border-radius-8": {
+        "$type": "number",
+        "$value": "16",
+        "$description": "16"
+      },
+      "border-radius-9": {
+        "$type": "number",
+        "$value": "20",
+        "$description": "20"
+      },
+      "border-radius-10": {
+        "$type": "number",
+        "$value": "24",
+        "$description": "24"
+      },
+      "border-radius-11": {
+        "$type": "number",
+        "$value": "28",
+        "$description": "28"
+      },
+      "border-radius-12": {
+        "$type": "number",
+        "$value": "32",
+        "$description": "32"
+      },
+      "border-radius-13": {
+        "$type": "number",
+        "$value": "36",
+        "$description": "36"
+      },
+      "border-radius-14": {
+        "$type": "number",
+        "$value": "40",
+        "$description": "40"
+      },
+      "border-radius-15": {
+        "$type": "number",
+        "$value": "44",
+        "$description": "44"
+      },
+      "border-radius-16": {
+        "$type": "number",
+        "$value": "48",
+        "$description": "48"
+      },
+      "border-radius-17": {
+        "$type": "number",
+        "$value": "52",
+        "$description": "52"
+      },
+      "border-radius-18": {
+        "$type": "number",
+        "$value": "56",
+        "$description": "56"
+      },
+      "border-radius-19": {
+        "$type": "number",
+        "$value": "60",
+        "$description": "60"
+      },
+      "border-radius-20": {
+        "$type": "number",
+        "$value": "64",
+        "$description": "64"
+      },
+      "border-radius-999": {
+        "$type": "number",
+        "$value": "9999",
+        "$description": "9999"
+      }
+    }
+  }
+}
