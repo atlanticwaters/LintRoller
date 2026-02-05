@@ -1,0 +1,344 @@
+{
+  "Alert": {
+    "size": {
+      "Error": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      },
+      "Success": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      },
+      "Warning": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      },
+      "Informational": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      }
+    },
+    "text": {
+      "Error": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.text.on-container-color.primary}"
+        }
+      },
+      "Success": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.text.on-container-color.primary}"
+        }
+      },
+      "Warning": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.text.on-container-color.primary}"
+        }
+      },
+      "Informational": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.text.on-container-color.primary}"
+        }
+      }
+    },
+    "border": {
+      "Error": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.border.input-color.focus}"
+        }
+      },
+      "stroke": {
+        "Error": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.border.input-color.focus}"
+          }
+        },
+        "Success": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.border.input-color.focus}"
+          }
+        },
+        "Warning": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.border.input-color.focus}"
+          }
+        },
+        "Informational": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.border.input-color.focus}"
+          }
+        }
+      },
+      "Success": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.border.input-color.focus}"
+        }
+      },
+      "Warning": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.border.input-color.focus}"
+        }
+      },
+      "Informational": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.border.input-color.focus}"
+        }
+      }
+    },
+    "radius": {
+      "corner": {
+        "Error": {
+          "Default": {
+            "$type": "number",
+            "$value": "{border.radius.border-radius-5}"
+          }
+        },
+        "Success": {
+          "Default": {
+            "$type": "number",
+            "$value": "{border.radius.border-radius-5}"
+          }
+        },
+        "Warning": {
+          "Default": {
+            "$type": "number",
+            "$value": "{border.radius.border-radius-5}"
+          }
+        },
+        "Informational": {
+          "Default": {
+            "$type": "number",
+            "$value": "{border.radius.border-radius-5}"
+          }
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Error": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          }
+        },
+        "Success": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          }
+        },
+        "Warning": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          }
+        },
+        "Informational": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          }
+        }
+      },
+      "Error": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-12}"
+        }
+      },
+      "Success": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-12}"
+        }
+      },
+      "Warning": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-12}"
+        }
+      },
+      "padding": {
+        "Error": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Success": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Warning": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Informational": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        }
+      },
+      "Informational": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-12}"
+        }
+      }
+    },
+    "elevation": {
+      "Error": {
+        "Default": {
+          "$type": "color",
+          "$value": "{elevation.shadow-color.shadow-200}"
+        }
+      },
+      "shadow": {
+        "Error": {
+          "Default": {
+            "$type": "color",
+            "$value": "{elevation.shadow-color.shadow-200}"
+          }
+        },
+        "Success": {
+          "Default": {
+            "$type": "color",
+            "$value": "{elevation.shadow-color.shadow-200}"
+          }
+        },
+        "Warning": {
+          "Default": {
+            "$type": "color",
+            "$value": "{elevation.shadow-color.shadow-200}"
+          }
+        },
+        "Informational": {
+          "Default": {
+            "$type": "color",
+            "$value": "{elevation.shadow-color.shadow-200}"
+          }
+        }
+      },
+      "Success": {
+        "Default": {
+          "$type": "color",
+          "$value": "{elevation.shadow-color.shadow-200}"
+        }
+      },
+      "Warning": {
+        "Default": {
+          "$type": "color",
+          "$value": "{elevation.shadow-color.shadow-200}"
+        }
+      },
+      "Informational": {
+        "Default": {
+          "$type": "color",
+          "$value": "{elevation.shadow-color.shadow-200}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Error": {
+          "Default": {
+            "$type": "color",
+            "$value": "{system.text.on-container-color.primary}"
+          }
+        },
+        "Success": {
+          "Default": {
+            "$type": "color",
+            "$value": "{system.text.on-container-color.primary}"
+          }
+        },
+        "Warning": {
+          "Default": {
+            "$type": "color",
+            "$value": "{system.text.on-container-color.primary}"
+          }
+        },
+        "Informational": {
+          "Default": {
+            "$type": "color",
+            "$value": "{system.text.on-container-color.primary}"
+          }
+        }
+      },
+      "Error": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.ghost-filled.default}"
+        }
+      },
+      "Success": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.ghost-filled.default}"
+        }
+      },
+      "Warning": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.ghost-filled.default}"
+        }
+      },
+      "Informational": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.ghost-filled.default}"
+        }
+      }
+    },
+    "border-width": {
+      "Error": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.border.selector-color.outline.selected-accent}"
+        }
+      },
+      "Success": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.border.selector-color.outline.selected-accent}"
+        }
+      },
+      "Warning": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.border.selector-color.outline.selected-accent}"
+        }
+      },
+      "Informational": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.border.selector-color.outline.selected-accent}"
+        }
+      }
+    }
+  }
+}

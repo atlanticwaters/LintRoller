@@ -1,0 +1,54 @@
+{
+  "Indicator": {
+    "size": {
+      "Default": {
+        "$type": "letterSpacing",
+        "$value": "{font.letter-spacing.base}"
+      }
+    },
+    "color": {
+      "Default": {
+        "$type": "color",
+        "$value": "{color.neutrals.white}"
+      }
+    },
+    "radius": {
+      "corner": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.radius.full}"
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.none}"
+        }
+      },
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-5}"
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-6}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.background.accent-color.red-accent-2}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{system.background.accent-color.red-accent-2}"
+      }
+    }
+  }
+}

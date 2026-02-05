@@ -1,0 +1,64 @@
+{
+  "position": {
+    "x-1": {
+      "$type": "number",
+      "$value": "1"
+    },
+    "x-2": {
+      "$type": "number",
+      "$value": "3"
+    },
+    "x-3": {
+      "$type": "number",
+      "$value": "4"
+    },
+    "x-4": {
+      "$type": "number",
+      "$value": "8"
+    },
+    "x-5": {
+      "$type": "number",
+      "$value": "16"
+    },
+    "y-1": {
+      "$type": "number",
+      "$value": "1"
+    },
+    "y-2": {
+      "$type": "number",
+      "$value": "3"
+    },
+    "y-3": {
+      "$type": "number",
+      "$value": "4"
+    },
+    "y-4": {
+      "$type": "number",
+      "$value": "8"
+    },
+    "y-5": {
+      "$type": "number",
+      "$value": "16"
+    },
+    "y-negative-1": {
+      "$type": "number",
+      "$value": "-1"
+    },
+    "y-negative-2": {
+      "$type": "number",
+      "$value": "-3"
+    },
+    "y-negative-3": {
+      "$type": "number",
+      "$value": "-4"
+    },
+    "y-negative-4": {
+      "$type": "number",
+      "$value": "-8"
+    },
+    "y-negative-5": {
+      "$type": "number",
+      "$value": "-16"
+    }
+  }
+}

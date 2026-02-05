@@ -87,6 +87,33 @@ body {
   align-items: center;
 }
 
+/* Token Source Selector */
+.token-source-selector {
+  padding: var(--space-xs) var(--space-lg);
+  border-bottom: 1px solid var(--figma-color-border);
+  background-color: var(--figma-color-bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.token-source-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.token-source-label {
+  font-size: var(--font-size-xs);
+  color: var(--figma-color-text-secondary);
+  white-space: nowrap;
+}
+
+.token-source-info {
+  font-size: var(--font-size-xs);
+  color: var(--figma-color-text-tertiary);
+}
+
 /* Buttons */
 .btn {
   display: inline-flex;

@@ -8,6 +8,7 @@ import type {
   LintResults,
   LintViolation,
   ScanScope,
+  TokenSource,
 } from '../shared/types';
 import { getDefaultConfig } from '../shared/types';
 import type { PluginToUIMessage, UIToPluginMessage, FixActionDetail } from '../shared/messages';
@@ -18,7 +19,8 @@ import { FixStatusBar } from './components/FixStatusBar';
 import { ActivityLog } from './components/ActivityLog';
 import { ResultsList } from './components/ResultsList';
 import { ConfigPanel } from './components/ConfigPanel';
-import { loadTokenFiles } from './tokens-loader';
+import { TokenSourceSelector } from './components/TokenSourceSelector';
+import { loadTokenFilesBySource } from './tokens-loader';
 
 type View = 'results' | 'config';
 
@@ -38,6 +40,9 @@ export function App() {
   const [fixProgress, setFixProgress] = useState<{ current: number; total: number } | null>(null);
   const [showActivityLog, setShowActivityLog] = useState(false);
   const [ignoredViolationsLoaded, setIgnoredViolationsLoaded] = useState(false);
+  const [tokenSource, setTokenSource] = useState<TokenSource>('local');
+  const [isLoadingTokens, setIsLoadingTokens] = useState(false);
+  const [tokenSourceLoaded, setTokenSourceLoaded] = useState(false);
 
   // Send message to plugin
   const postMessage = useCallback((message: UIToPluginMessage) => {
@@ -109,12 +114,22 @@ export function App() {
           setFixActions(prev => [...prev, fixAction]);
 
           if (msg.success) {
-            // Mark this violation as fixed
+            // Mark violations as fixed
             setFixedViolations(prev => {
               const next = new Set(prev);
               // Create a unique key for this violation
               const key = msg.nodeId + ':' + msg.property;
               next.add(key);
+
+              // If this was a text style application, mark ALL typography violations
+              // for the same node as fixed, since text styles affect all typography properties
+              if (msg.actionType === 'apply-style') {
+                const typographyProps = ['fontSize', 'lineHeight', 'letterSpacing'];
+                for (const prop of typographyProps) {
+                  next.add(msg.nodeId + ':' + prop);
+                }
+              }
+
               return next;
             });
           } else {
@@ -144,7 +159,7 @@ export function App() {
 
           if (msg.failed > 0) {
             console.error('Bulk fix errors:', msg.errors);
-            alert('Fixed ' + msg.successful + ' issues. ' + msg.failed + ' failed.\n\n' + msg.errors.slice(0, 3).join('\n'));
+            alert(['Fixed ' + msg.successful + ' issues. ' + msg.failed + ' failed.'].concat(msg.errors.slice(0, 3)).join(' | '));
           }
           // Re-scan to update results
           if (msg.successful > 0) {
@@ -156,7 +171,7 @@ export function App() {
           setIsFixing(false);
           if (msg.failed > 0) {
             console.error('Bulk detach errors:', msg.errors);
-            alert('Detached ' + msg.successful + ' styles. ' + msg.failed + ' failed.\n\n' + msg.errors.slice(0, 3).join('\n'));
+            alert(['Detached ' + msg.successful + ' styles. ' + msg.failed + ' failed.'].concat(msg.errors.slice(0, 3)).join(' | '));
           }
           // Re-scan to update results
           if (msg.successful > 0) {
@@ -171,6 +186,12 @@ export function App() {
           console.log('[UI] Loaded', msg.ignoredKeys.length, 'ignored violations from storage');
           break;
 
+        case 'TOKEN_SOURCE_LOADED':
+          setTokenSource(msg.source);
+          setTokenSourceLoaded(true);
+          console.log('[UI] Loaded token source preference:', msg.source);
+          break;
+
         case 'ERROR':
           console.error('Plugin error:', msg.message);
           setIsScanning(false);
@@ -183,13 +204,24 @@ export function App() {
     return () => window.removeEventListener('message', handleMessage);
   }, [handleScan]);
 
-  // Load tokens on mount and send to plugin
+  // Load token source preference and ignored violations from storage on mount
   useEffect(() => {
+    postMessage({ type: 'LOAD_TOKEN_SOURCE' });
+    postMessage({ type: 'LOAD_IGNORED_VIOLATIONS' });
+  }, [postMessage]);
+
+  // Load tokens when source preference is loaded or source changes
+  useEffect(() => {
+    if (!tokenSourceLoaded) return;
+
+    let cancelled = false;
     async function loadAndSendTokens() {
       try {
-        console.log('[UI] Starting token load...');
-        const files = await loadTokenFiles();
-        console.log('[UI] Token files loaded, sending to plugin...');
+        setIsLoadingTokens(true);
+        console.log(`[UI] Loading tokens from source: ${tokenSource}`);
+        const files = await loadTokenFilesBySource(tokenSource);
+        if (cancelled) return;
+        console.log(`[UI] ${files.length} token files loaded, sending to plugin...`);
         postMessage({
           type: 'TOKEN_FILES_LOADED',
           files: files.map(f => ({
@@ -199,15 +231,13 @@ export function App() {
         });
       } catch (error) {
         console.error('[UI] Failed to load tokens:', error);
+      } finally {
+        if (!cancelled) setIsLoadingTokens(false);
       }
     }
     loadAndSendTokens();
-  }, [postMessage]);
-
-  // Load ignored violations from storage on mount
-  useEffect(() => {
-    postMessage({ type: 'LOAD_IGNORED_VIOLATIONS' });
-  }, [postMessage]);
+    return () => { cancelled = true; };
+  }, [tokenSource, tokenSourceLoaded, postMessage]);
 
   // Save ignored violations to storage whenever they change
   useEffect(() => {
@@ -415,7 +445,8 @@ export function App() {
           v.suggestedToken || '',
         ]);
 
-        content = [headers, ...rows].map(row => row.map(cell => '"' + cell.replace(/"/g, '""') + '"').join(',')).join('\n');
+        const csvRows = [headers, ...rows].map(row => row.map(cell => '"' + cell.replace(/"/g, '""') + '"').join(','));
+        content = csvRows.join(decodeURIComponent('%0A'));
         filename = 'lint-results.csv';
         mimeType = 'text/csv';
       }
@@ -440,6 +471,12 @@ export function App() {
     postMessage({ type: 'UPDATE_CONFIG', config: newConfig });
   }, [postMessage]);
 
+  // Change token source
+  const handleTokenSourceChange = useCallback((source: TokenSource) => {
+    setTokenSource(source);
+    postMessage({ type: 'SAVE_TOKEN_SOURCE', source });
+  }, [postMessage]);
+
   // Count fixable violations
   const fixableCount = results?.violations.filter(v => v.suggestedToken && !fixedViolations.has(v.nodeId + ':' + v.property)).length || 0;
 
@@ -454,6 +491,13 @@ export function App() {
         hasResults={results !== null}
         view={view}
         onViewChange={setView}
+      />
+
+      <TokenSourceSelector
+        source={tokenSource}
+        onSourceChange={handleTokenSourceChange}
+        isLoading={isLoadingTokens}
+        tokenCount={tokenCount}
       />
 
       {isScanning && <ProgressBar processed={progress.processed} total={progress.total} />}

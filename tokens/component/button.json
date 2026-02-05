@@ -1,0 +1,1407 @@
+{
+  "Button": {
+    "height": {
+      "Sm": {
+        "$type": "number",
+        "$value": "{spacing.spacing-10}",
+        "$description": "Small button height: 28px"
+      },
+      "Md": {
+        "$type": "number",
+        "$value": "{spacing.spacing-12}",
+        "$description": "Medium button height: 36px"
+      },
+      "Lg": {
+        "$type": "number",
+        "$value": "{spacing.spacing-14}",
+        "$description": "Large button height: 44px"
+      }
+    },
+    "horizontal-padding": {
+      "Sm": {
+        "$type": "number",
+        "$value": "{system.dimension.gap.sm}",
+        "$description": "Horizontal padding for small buttons: 16px"
+      },
+      "Md": {
+        "$type": "number",
+        "$value": "{system.dimension.gap.sm}",
+        "$description": "Horizontal padding for medium buttons: 16px"
+      },
+      "Lg": {
+        "$type": "number",
+        "$value": "{system.dimension.gap.sm}",
+        "$description": "Horizontal padding for large buttons: 16px"
+      }
+    },
+    "icon-size": {
+      "Sm": {
+        "$type": "number",
+        "$value": "{spacing.spacing-6}",
+        "$description": "Icon size for small buttons: 14px (closest match: 12px)"
+      },
+      "Md": {
+        "$type": "number",
+        "$value": "{spacing.spacing-6}",
+        "$description": "Icon size for medium buttons: 14px (closest match: 12px)"
+      },
+      "Lg": {
+        "$type": "number",
+        "$value": "{spacing.spacing-6}",
+        "$description": "Icon size for large buttons: 12px"
+      }
+    },
+    "icon-gap": {
+      "$type": "number",
+      "$value": "{system.dimension.gap.2xs}",
+      "$description": "Gap between icon and text: 8px"
+    },
+    "spinner-size": {
+      "$type": "number",
+      "$value": "{system.dimension.gap.sm}",
+      "$description": "Spinner size for loading state: 16px"
+    },
+    "pressed": {
+      "scale": {
+        "$type": "number",
+        "$value": "{interaction.pressed.scale}",
+        "$description": "Scale factor when button is pressed"
+      },
+      "opacity": {
+        "Orange-Filled": {
+          "$type": "number",
+          "$value": "{interaction.pressed.opacity.subtle}",
+          "$description": "Pressed opacity for orange filled buttons"
+        },
+        "Gradient-Filled": {
+          "$type": "number",
+          "$value": "{interaction.pressed.opacity.subtle}",
+          "$description": "Pressed opacity for gradient filled buttons"
+        },
+        "White-Filled": {
+          "$type": "number",
+          "$value": "{interaction.pressed.opacity.subtle}",
+          "$description": "Pressed opacity for white filled buttons"
+        },
+        "Outlined": {
+          "$type": "number",
+          "$value": "{interaction.pressed.opacity.none}",
+          "$description": "Pressed opacity for outlined buttons (uses pressed background instead)"
+        },
+        "Black-5": {
+          "$type": "number",
+          "$value": "{interaction.pressed.opacity.none}",
+          "$description": "Pressed opacity for black5 buttons (uses pressed background instead)"
+        },
+        "Black-10": {
+          "$type": "number",
+          "$value": "{interaction.pressed.opacity.none}",
+          "$description": "Pressed opacity for black10 buttons (uses pressed background instead)"
+        },
+        "Ghost": {
+          "$type": "number",
+          "$value": "{interaction.pressed.opacity.none}",
+          "$description": "Pressed opacity for ghost buttons (uses pressed background instead)"
+        }
+      }
+    },
+    "icon": {
+      "Ghost": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.ghost-filled.default}"
+        },
+        "Success": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.ghost-filled.default}"
+        },
+        "Inactive": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.ghost-filled.inactive}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.ghost-filled.default}"
+        }
+      },
+      "Black-5": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.transparent-05-filled.default}"
+        },
+        "Success": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.transparent-05-filled.default}"
+        },
+        "Inactive": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.transparent-05-filled.inactive}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.transparent-05-filled.default}"
+        }
+      },
+      "Black-10": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.transparent-10-filled.default}"
+        },
+        "Success": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.transparent-10-filled.default}"
+        },
+        "Inactive": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.transparent-10-filled.inactive}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.transparent-10-filled.default}"
+        }
+      },
+      "Outlined": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.orange-outline.default}"
+        },
+        "Success": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.orange-outline.default}"
+        },
+        "Inactive": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.orange-outline.inactive}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.orange-outline.default}"
+        }
+      },
+      "White-Filled": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.white-filled.default}"
+        },
+        "Success": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.white-filled.default}"
+        },
+        "Inactive": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.white-filled.inactive}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.white-filled.default}"
+        }
+      },
+      "Orange-Filled": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.orange-filled.default}"
+        },
+        "Success": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.orange-filled.default}"
+        },
+        "Inactive": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.orange-filled.inactive}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.orange-filled.default}"
+        }
+      },
+      "Gradient-Filled": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.orange-filled.default}"
+        },
+        "Success": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.gradient-filled.default}"
+        },
+        "Inactive": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.gradient-filled.inactive}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.orange-filled.default}"
+        }
+      }
+    },
+    "size": {
+      "Ghost": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      },
+      "Black-5": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      },
+      "Black-10": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      },
+      "Outlined": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        },
+        "Active-Pressed": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      },
+      "White-Filled": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        }
+      },
+      "Orange-Filled": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        }
+      },
+      "Gradient-Filled": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{system.dimension.size.xl}"
+        },
+        "Active-Pressed": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      }
+    },
+    "color": {
+      "Ghost": {
+        "Loading": {
+          "$type": "color",
+          "$value": "{color.transparent-black.transparent-black-200}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{color.transparent-black.transparent-black-075}"
+        }
+      },
+      "Black-5": {
+        "Loading": {
+          "$type": "color",
+          "$value": "{color.transparent-black.transparent-black-200}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{color.transparent-black.transparent-black-075}"
+        }
+      },
+      "Black-10": {
+        "Loading": {
+          "$type": "color",
+          "$value": "{color.transparent-black.transparent-black-200}"
+        }
+      },
+      "Outlined": {
+        "Loading": {
+          "$type": "color",
+          "$value": "{color.brand.brand-200}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{color.transparent-black.transparent-black-075}"
+        }
+      },
+      "White-Filled": {
+        "Loading": {
+          "$type": "color",
+          "$value": "{color.transparent-black.transparent-black-200}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{color.transparent-black.transparent-black-075}"
+        }
+      },
+      "Orange-Filled": {
+        "Loading": {
+          "$type": "color",
+          "$value": "{color.brand.brand-200}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{color.transparent-black.transparent-black-075}"
+        }
+      },
+      "Gradient-Filled": {
+        "Default": {
+          "$type": "color",
+          "$value": "{color.brand.brand-400}"
+        },
+        "Loading": {
+          "$type": "color",
+          "$value": "{color.brand.brand-400}"
+        },
+        "Success": {
+          "$type": "color",
+          "$value": "{color.brand.brand-400}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{color.brand.brand-400}"
+        }
+      }
+    },
+    "border": {
+      "stroke": {
+        "Ghost": {
+          "Loading": {
+            "$type": "color",
+            "$value": "{color.transparent-black.transparent-black-200}"
+          }
+        },
+        "Black-5": {
+          "Loading": {
+            "$type": "color",
+            "$value": "{color.transparent-black.transparent-black-200}"
+          }
+        },
+        "Black-10": {
+          "Loading": {
+            "$type": "color",
+            "$value": "{color.transparent-black.transparent-black-200}"
+          }
+        },
+        "Outlined": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.border.button-color.orange-outline.default}"
+          },
+          "Loading": {
+            "$type": "color",
+            "$value": "{color.brand.brand-200}"
+          },
+          "Success": {
+            "$type": "color",
+            "$value": "{component.border.button-color.orange-outline.default}"
+          },
+          "Inactive": {
+            "$type": "color",
+            "$value": "{component.border.button-color.orange-outline.inactive}"
+          },
+          "Active-Pressed": {
+            "$type": "color",
+            "$value": "{component.border.button-color.orange-outline.default}"
+          }
+        },
+        "White-Filled": {
+          "Loading": {
+            "$type": "color",
+            "$value": "{color.transparent-black.transparent-black-200}"
+          }
+        },
+        "Orange-Filled": {
+          "Loading": {
+            "$type": "color",
+            "$value": "{color.brand.brand-200}"
+          }
+        },
+        "Gradient-Filled": {
+          "Loading": {
+            "$type": "color",
+            "$value": "{color.brand.brand-200}"
+          }
+        }
+      },
+      "Outlined": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.border.button-color.orange-outline.default}"
+        },
+        "Success": {
+          "$type": "color",
+          "$value": "{component.border.button-color.orange-outline.default}"
+        },
+        "Inactive": {
+          "$type": "color",
+          "$value": "{component.border.button-color.orange-outline.inactive}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{component.border.button-color.orange-outline.default}"
+        }
+      }
+    },
+    "radius": {
+      "corner": {
+        "Ghost": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          }
+        },
+        "Black-5": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          }
+        },
+        "Black-10": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          }
+        },
+        "Outlined": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          }
+        },
+        "White-Filled": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          }
+        },
+        "Orange-Filled": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          }
+        },
+        "Gradient-Filled": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          }
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Ghost": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          }
+        },
+        "Black-5": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          }
+        },
+        "Black-10": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          }
+        },
+        "Outlined": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "White-Filled": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          }
+        },
+        "Orange-Filled": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          }
+        },
+        "Gradient-Filled": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-2}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{spacing.spacing-5}"
+          }
+        }
+      },
+      "Ghost": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        }
+      },
+      "Black-5": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        }
+      },
+      "padding": {
+        "Ghost": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Black-5": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Black-10": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Outlined": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          },
+          "Active-Pressed": {
+            "$type": "number",
+            "$value": "{spacing.spacing-7}"
+          }
+        },
+        "White-Filled": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Orange-Filled": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Gradient-Filled": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          },
+          "Loading": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Success": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          },
+          "Inactive": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        }
+      },
+      "Black-10": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        }
+      },
+      "Outlined": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        }
+      },
+      "White-Filled": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        }
+      },
+      "Orange-Filled": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-12}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{spacing.spacing-12}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{spacing.spacing-12}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        }
+      },
+      "Gradient-Filled": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Ghost": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.ghost-filled.default}"
+          },
+          "Success": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.ghost-filled.default}"
+          },
+          "Inactive": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.ghost-filled.inactive}"
+          },
+          "Active-Pressed": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.ghost-filled.default}"
+          }
+        },
+        "Black-5": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.transparent-05-filled.default}"
+          },
+          "Loading": {
+            "$type": "color",
+            "$value": "{component.background.button-color.transparent-05.default}"
+          },
+          "Success": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.transparent-05-filled.default}"
+          },
+          "Inactive": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.transparent-05-filled.inactive}"
+          },
+          "Active-Pressed": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.transparent-05-filled.default}"
+          }
+        },
+        "Black-10": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.transparent-10-filled.default}"
+          },
+          "Loading": {
+            "$type": "color",
+            "$value": "{component.background.button-color.transparent-10.default}"
+          },
+          "Success": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.transparent-10-filled.default}"
+          },
+          "Inactive": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.transparent-10-filled.inactive}"
+          },
+          "Active-Pressed": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.transparent-10-filled.default}"
+          }
+        },
+        "Outlined": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.orange-outline.default}"
+          },
+          "Success": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.orange-outline.default}"
+          },
+          "Inactive": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.orange-outline.inactive}"
+          },
+          "Active-Pressed": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.orange-outline.default}"
+          }
+        },
+        "White-Filled": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.white-filled.default}"
+          },
+          "Loading": {
+            "$type": "color",
+            "$value": "{component.background.button-color.white-filled.default}"
+          },
+          "Success": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.white-filled.default}"
+          },
+          "Inactive": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.white-filled.inactive}"
+          },
+          "Active-Pressed": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.white-filled.default}"
+          }
+        },
+        "Orange-Filled": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.orange-filled.default}"
+          },
+          "Loading": {
+            "$type": "color",
+            "$value": "{component.background.button-color.brand-filled.default}"
+          },
+          "Success": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.orange-filled.default}"
+          },
+          "Inactive": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.orange-filled.inactive}"
+          },
+          "Active-Pressed": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.orange-filled.default}"
+          }
+        },
+        "Gradient-Filled": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.orange-filled.default}"
+          },
+          "Success": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.gradient-filled.default}"
+          },
+          "Inactive": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.gradient-filled.inactive}"
+          },
+          "Active-Pressed": {
+            "$type": "color",
+            "$value": "{component.icon.button-color.orange-filled.default}"
+          }
+        }
+      },
+      "Black-5": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.transparent-05.default}"
+        },
+        "Loading": {
+          "$type": "color",
+          "$value": "{component.background.button-color.transparent-05.default}"
+        },
+        "Success": {
+          "$type": "color",
+          "$value": "{component.background.button-color.transparent-05.default}"
+        },
+        "Inactive": {
+          "$type": "color",
+          "$value": "{component.background.button-color.transparent-05.default}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{component.background.button-color.transparent-05.default}"
+        }
+      },
+      "Black-10": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.transparent-10.default}"
+        },
+        "Loading": {
+          "$type": "color",
+          "$value": "{component.background.button-color.transparent-10.default}"
+        },
+        "Success": {
+          "$type": "color",
+          "$value": "{component.background.button-color.transparent-10.default}"
+        },
+        "Inactive": {
+          "$type": "color",
+          "$value": "{component.background.button-color.transparent-10.default}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{component.background.button-color.transparent-10.default}"
+        }
+      },
+      "White-Filled": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.white-filled.default}"
+        },
+        "Loading": {
+          "$type": "color",
+          "$value": "{component.background.button-color.white-filled.default}"
+        },
+        "Success": {
+          "$type": "color",
+          "$value": "{component.background.button-color.white-filled.default}"
+        },
+        "Inactive": {
+          "$type": "color",
+          "$value": "{component.background.button-color.white-filled.inactive}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{system.background.container-color.white}"
+        }
+      },
+      "Orange-Filled": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.brand-filled.default}"
+        },
+        "Loading": {
+          "$type": "color",
+          "$value": "{component.background.button-color.brand-filled.default}"
+        },
+        "Success": {
+          "$type": "color",
+          "$value": "{component.background.button-color.brand-filled.default}"
+        },
+        "Inactive": {
+          "$type": "color",
+          "$value": "{component.background.button-color.brand-filled.inactive}"
+        },
+        "Active-Pressed": {
+          "$type": "color",
+          "$value": "{system.background.container-color.brand}"
+        }
+      },
+      "Gradient-Filled": {
+        "Inactive": {
+          "$type": "color",
+          "$value": "{component.background.button-color.brand-filled.inactive}"
+        }
+      }
+    },
+    "font-weight": {
+      "Outlined": {
+        "Default": {
+          "$type": "string",
+          "$value": "{font.font-weight.body.bold}"
+        },
+        "Inactive": {
+          "$type": "string",
+          "$value": "{font.font-weight.body.bold}"
+        },
+        "Active-Pressed": {
+          "$type": "string",
+          "$value": "{font.font-weight.body.bold}"
+        }
+      },
+      "Orange-Filled": {
+        "Default": {
+          "$type": "string",
+          "$value": "{font.font-weight.body.bold}"
+        },
+        "Inactive": {
+          "$type": "string",
+          "$value": "{font.font-weight.body.bold}"
+        },
+        "Active-Pressed": {
+          "$type": "string",
+          "$value": "{font.font-weight.body.bold}"
+        }
+      },
+      "Gradient-Filled": {
+        "Default": {
+          "$type": "string",
+          "$value": "{font.font-weight.body.bold}"
+        },
+        "Inactive": {
+          "$type": "string",
+          "$value": "{font.font-weight.body.bold}"
+        },
+        "Active-Pressed": {
+          "$type": "string",
+          "$value": "{font.font-weight.body.bold}"
+        }
+      }
+    },
+    "border-width": {
+      "Outlined": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.width.sm}"
+        },
+        "Loading": {
+          "$type": "number",
+          "$value": "{system.border.width.sm}"
+        },
+        "Success": {
+          "$type": "number",
+          "$value": "{system.border.width.sm}"
+        },
+        "Inactive": {
+          "$type": "number",
+          "$value": "{system.border.width.sm}"
+        },
+        "Active-Pressed": {
+          "$type": "number",
+          "$value": "{system.border.width.sm}"
+        }
+      }
+    }
+  }
+}

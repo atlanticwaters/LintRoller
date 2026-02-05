@@ -1,0 +1,72 @@
+{
+  "Pricing-Action": {
+    "icon": {
+      "Default": {
+        "$type": "color",
+        "$value": "{component.icon.button-color.orange-filled.default}"
+      }
+    },
+    "size": {
+      "Default": {
+        "$type": "number",
+        "$value": "{system.dimension.size.sm}"
+      }
+    },
+    "color": {
+      "Default": {
+        "$type": "color",
+        "$value": "{color.transparent-black.transparent-black-075}"
+      }
+    },
+    "radius": {
+      "corner": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.radius.full}"
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-5}"
+        }
+      },
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-10}"
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.sm}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.button-color.orange-filled.default}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{component.background.button-color.brand-filled.default}"
+      }
+    },
+    "font-weight": {
+      "Default": {
+        "$type": "string",
+        "$value": "{font.font-weight.body.bold}"
+      }
+    },
+    "border-width": {
+      "Default": {
+        "$type": "number",
+        "$value": "{border.width.border-width-1}"
+      }
+    }
+  }
+}

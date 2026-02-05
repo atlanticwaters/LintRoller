@@ -1,0 +1,246 @@
+{
+  "Callout": {
+    "size": {
+      "Brand": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      },
+      "Inverse": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      },
+      "Neutral": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      }
+    },
+    "text": {
+      "Brand": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.text.on-container-color.tertiary}"
+        }
+      },
+      "Inverse": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.text.on-container-color.inverse}"
+        }
+      },
+      "Neutral": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.text.on-container-color.tertiary}"
+        }
+      }
+    },
+    "radius": {
+      "corner": {
+        "Brand": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          }
+        },
+        "Inverse": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          }
+        },
+        "Neutral": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          }
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Brand": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-7}"
+          }
+        },
+        "Inverse": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-7}"
+          }
+        },
+        "Neutral": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-7}"
+          }
+        }
+      },
+      "Brand": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        }
+      },
+      "Inverse": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        }
+      },
+      "Neutral": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-10}"
+        }
+      },
+      "padding": {
+        "Brand": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Inverse": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        },
+        "Neutral": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.2xs}"
+          }
+        }
+      }
+    },
+    "elevation": {
+      "Brand": {
+        "Default": {
+          "$type": "color",
+          "$value": "{elevation.shadow-color.shadow-200}"
+        }
+      },
+      "shadow": {
+        "Brand": {
+          "Default": {
+            "$type": "color",
+            "$value": "{elevation.shadow-color.shadow-200}"
+          }
+        },
+        "Inverse": {
+          "Default": {
+            "$type": "color",
+            "$value": "{elevation.shadow-color.shadow-200}"
+          }
+        },
+        "Neutral": {
+          "Default": {
+            "$type": "color",
+            "$value": "{elevation.shadow-color.shadow-200}"
+          }
+        }
+      },
+      "Inverse": {
+        "Default": {
+          "$type": "color",
+          "$value": "{elevation.shadow-color.shadow-200}"
+        }
+      },
+      "Neutral": {
+        "Default": {
+          "$type": "color",
+          "$value": "{elevation.shadow-color.shadow-200}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Brand": {
+          "Default": {
+            "$type": "color",
+            "$value": "{system.text.on-container-color.tertiary}"
+          }
+        },
+        "Inverse": {
+          "Default": {
+            "$type": "color",
+            "$value": "{system.text.on-container-color.inverse}"
+          }
+        },
+        "Neutral": {
+          "Default": {
+            "$type": "color",
+            "$value": "{system.text.on-container-color.tertiary}"
+          }
+        }
+      },
+      "Brand": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.brand-filled.default}"
+        }
+      },
+      "Inverse": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.brand-filled.default}"
+        }
+      },
+      "Neutral": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.button-color.brand-filled.default}"
+        }
+      }
+    },
+    "font-weight": {
+      "Brand": {
+        "Default": {
+          "$type": "string",
+          "$value": "{font.font-weight.heading.bold}"
+        }
+      },
+      "Inverse": {
+        "Default": {
+          "$type": "string",
+          "$value": "{font.font-weight.heading.bold}"
+        }
+      },
+      "Neutral": {
+        "Default": {
+          "$type": "string",
+          "$value": "{font.font-weight.heading.bold}"
+        }
+      }
+    },
+    "border-width": {
+      "Brand": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.width.xs}"
+        }
+      },
+      "Inverse": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.width.xs}"
+        }
+      },
+      "Neutral": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.width.xs}"
+        }
+      }
+    }
+  }
+}

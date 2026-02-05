@@ -1,0 +1,60 @@
+{
+  "Tooltip": {
+    "size": {
+      "Default": {
+        "$type": "number",
+        "$value": "{system.dimension.size.sm}"
+      }
+    },
+    "radius": {
+      "corner": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.radius.xl}"
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.4xs}"
+        }
+      },
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-12}"
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.xs}"
+        }
+      }
+    },
+    "elevation": {
+      "shadow": {
+        "Default": {
+          "$type": "color",
+          "$value": "{elevation.shadow-color.shadow-200}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{elevation.shadow-color.shadow-200}"
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.background.container-color.white}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{system.background.container-color.white}"
+      }
+    }
+  }
+}

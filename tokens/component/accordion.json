@@ -1,0 +1,78 @@
+{
+  "Accordion": {
+    "icon": {
+      "Default": {
+        "$type": "color",
+        "$value": "{system.icon.on-container-color.primary}"
+      }
+    },
+    "text": {
+      "Default": {
+        "$type": "color",
+        "$value": "{system.text.on-container-color.primary}"
+      }
+    },
+    "border": {
+      "stroke": {
+        "Default": {
+          "$type": "number",
+          "$value": "{border.width.border-width-1}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{component.text.button-color.orange-outline.default}"
+      }
+    },
+    "radius": {
+      "corner": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.radius.3xl}"
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-5}"
+        }
+      },
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-4}"
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-0}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.text.on-container-color.primary}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{system.background.container-color.white}"
+      }
+    },
+    "font-weight": {
+      "Default": {
+        "$type": "string",
+        "$value": "{font.font-weight.body.bold}"
+      }
+    },
+    "border-width": {
+      "Default": {
+        "$type": "number",
+        "$value": "{system.border.width.xs}"
+      }
+    }
+  }
+}

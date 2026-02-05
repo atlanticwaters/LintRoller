@@ -1,0 +1,154 @@
+{
+  "Switch": {
+    "icon": {
+      "Off-Enabled": {
+        "$type": "color",
+        "$value": "{system.icon.on-surface-color.primary}"
+      },
+      "On-Selected": {
+        "$type": "color",
+        "$value": "{system.icon.on-surface-color.primary}"
+      }
+    },
+    "size": {
+      "Off-Enabled": {
+        "$type": "number",
+        "$value": "{system.dimension.size.sm}"
+      },
+      "On-Selected": {
+        "$type": "number",
+        "$value": "{system.dimension.size.sm}"
+      }
+    },
+    "border": {
+      "On": {
+        "$type": "color",
+        "$value": "{component.border.selector-color.filled.selected}"
+      },
+      "Off": {
+        "$type": "color",
+        "$value": "{component.border.input-color.default}"
+      },
+      "stroke": {
+        "On": {
+          "$type": "color",
+          "$value": "{component.border.selector-color.filled.selected}"
+        },
+        "Off": {
+          "$type": "color",
+          "$value": "{component.border.input-color.default}"
+        },
+        "Off-Enabled": {
+          "$type": "color",
+          "$value": "{component.border.input-color.default}"
+        },
+        "On-Selected": {
+          "$type": "color",
+          "$value": "{component.border.selector-color.filled.selected}"
+        }
+      },
+      "Off-Enabled": {
+        "$type": "color",
+        "$value": "{component.border.input-color.default}"
+      },
+      "On-Selected": {
+        "$type": "color",
+        "$value": "{component.border.selector-color.filled.selected}"
+      }
+    },
+    "radius": {
+      "corner": {
+        "On": {
+          "$type": "number",
+          "$value": "{system.border.radius.full}"
+        },
+        "Off": {
+          "$type": "number",
+          "$value": "{system.border.radius.full}"
+        },
+        "Off-Enabled": {
+          "$type": "number",
+          "$value": "{system.border.radius.full}"
+        },
+        "On-Selected": {
+          "$type": "number",
+          "$value": "{system.border.radius.full}"
+        }
+      }
+    },
+    "spacing": {
+      "padding": {
+        "On": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.5xs}"
+        },
+        "Off": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.5xs}"
+        },
+        "Off-Enabled": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.4xs}"
+        },
+        "On-Selected": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.5xs}"
+        }
+      }
+    },
+    "background": {
+      "On": {
+        "$type": "color",
+        "$value": "{component.background.selector-color.filled.switch-handle.selected}"
+      },
+      "Off": {
+        "$type": "color",
+        "$value": "{component.background.selector-color.filled.switch-handle.default}"
+      },
+      "fill": {
+        "On": {
+          "$type": "color",
+          "$value": "{component.background.selector-color.filled.switch-handle.selected}"
+        },
+        "Off": {
+          "$type": "color",
+          "$value": "{component.background.selector-color.filled.switch-handle.default}"
+        },
+        "Off-Enabled": {
+          "$type": "color",
+          "$value": "{system.icon.on-surface-color.primary}"
+        },
+        "On-Selected": {
+          "$type": "color",
+          "$value": "{system.icon.on-surface-color.primary}"
+        }
+      },
+      "Off-Enabled": {
+        "$type": "color",
+        "$value": "{component.background.selector-color.filled.switch-handle.default}"
+      },
+      "On-Selected": {
+        "$type": "color",
+        "$value": "{component.background.selector-color.filled.switch-handle.selected}"
+      }
+    },
+    "border-width": {
+      "On": {
+        "$type": "number",
+        "$value": "{border.width.border-width-2}"
+      },
+      "Off": {
+        "$type": "number",
+        "$value": "{border.width.border-width-2}"
+      },
+      "Off-Enabled": {
+        "$type": "number",
+        "$value": "{border.width.border-width-2}"
+      },
+      "On-Selected": {
+        "$type": "number",
+        "$value": "{border.width.border-width-2}"
+      }
+    }
+  }
+}

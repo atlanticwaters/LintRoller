@@ -1,0 +1,26 @@
+{
+  "font": {
+    "letter-spacing": {
+      "base": {
+        "$type": "text",
+        "$value": "0%"
+      },
+      "n-lg": {
+        "$type": "text",
+        "$value": "-5%"
+      },
+      "n-sm": {
+        "$type": "text",
+        "$value": "-2%"
+      },
+      "p-lg": {
+        "$type": "text",
+        "$value": "5%"
+      },
+      "p-sm": {
+        "$type": "text",
+        "$value": "2%"
+      }
+    }
+  }
+}

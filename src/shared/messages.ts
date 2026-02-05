@@ -2,7 +2,7 @@
  * Message types for Plugin <-> UI communication
  */
 
-import type { LintConfig, LintResults, ScanScope } from './types';
+import type { LintConfig, LintResults, ScanScope, TokenSource } from './types';
 
 /**
  * Detailed information about a fix action for activity logging
@@ -122,6 +122,17 @@ export interface LoadIgnoredViolationsMessage {
   type: 'LOAD_IGNORED_VIOLATIONS';
 }
 
+/** Message to save token source preference to persistent storage */
+export interface SaveTokenSourceMessage {
+  type: 'SAVE_TOKEN_SOURCE';
+  source: TokenSource;
+}
+
+/** Message to request loading token source preference from storage */
+export interface LoadTokenSourceMessage {
+  type: 'LOAD_TOKEN_SOURCE';
+}
+
 export type UIToPluginMessage =
   | StartScanMessage
   | SelectNodeMessage
@@ -137,7 +148,9 @@ export type UIToPluginMessage =
   | ApplyTextStyleMessage
   | TokenFilesLoadedMessage
   | SaveIgnoredViolationsMessage
-  | LoadIgnoredViolationsMessage;
+  | LoadIgnoredViolationsMessage
+  | SaveTokenSourceMessage
+  | LoadTokenSourceMessage;
 
 // Messages from Plugin to UI
 
@@ -219,6 +232,12 @@ export interface IgnoredViolationsLoadedMessage {
   ignoredKeys: string[];
 }
 
+/** Message returning loaded token source preference from storage */
+export interface TokenSourceLoadedMessage {
+  type: 'TOKEN_SOURCE_LOADED';
+  source: TokenSource;
+}
+
 export type PluginToUIMessage =
   | ScanStartedMessage
   | ScanProgressMessage
@@ -230,4 +249,5 @@ export type PluginToUIMessage =
   | FixProgressMessage
   | BulkFixCompleteMessage
   | BulkDetachCompleteMessage
-  | IgnoredViolationsLoadedMessage;
+  | IgnoredViolationsLoadedMessage
+  | TokenSourceLoadedMessage;

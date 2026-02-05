@@ -1,0 +1,60 @@
+{
+  "PillMedia": {
+    "icon": {
+      "Icon": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.icon.selector-color.outline.default}"
+        }
+      }
+    },
+    "size": {
+      "Image": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.lg}"
+        }
+      },
+      "Swatch": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.lg}"
+        }
+      }
+    },
+    "color": {
+      "Swatch": {
+        "Default": {
+          "$type": "color",
+          "$value": "{color.brand.brand-200}"
+        }
+      }
+    },
+    "radius": {
+      "corner": {
+        "Image": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          }
+        },
+        "Swatch": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.full}"
+          }
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Icon": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.icon.selector-color.outline.default}"
+          }
+        }
+      }
+    }
+  }
+}

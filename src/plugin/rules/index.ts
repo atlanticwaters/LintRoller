@@ -13,6 +13,7 @@ import { NoHardcodedSpacingRule } from './no-hardcoded-spacing';
 import { NoHardcodedRadiiRule } from './no-hardcoded-radii';
 import { NoOrphanedVariablesRule } from './no-orphaned-variables';
 import { NoUnknownStylesRule } from './no-unknown-styles';
+import { PreferSemanticVariablesRule } from './prefer-semantic-variables';
 
 export { LintRule } from './base';
 export { NoHardcodedColorsRule } from './no-hardcoded-colors';
@@ -21,6 +22,7 @@ export { NoHardcodedSpacingRule } from './no-hardcoded-spacing';
 export { NoHardcodedRadiiRule } from './no-hardcoded-radii';
 export { NoOrphanedVariablesRule } from './no-orphaned-variables';
 export { NoUnknownStylesRule } from './no-unknown-styles';
+export { PreferSemanticVariablesRule } from './prefer-semantic-variables';
 
 /**
  * Create all enabled lint rules
@@ -75,6 +77,17 @@ export function createRules(
     rules.push(new NoUnknownStylesRule(config.rules['no-unknown-styles'], tokens));
   }
 
+  // Prefer Semantic Variables
+  if (config.rules['prefer-semantic-variables'].enabled) {
+    rules.push(
+      new PreferSemanticVariablesRule(
+        config.rules['prefer-semantic-variables'],
+        tokens,
+        figmaVariables
+      )
+    );
+  }
+
   return rules;
 }
 
@@ -89,6 +102,7 @@ export function getAllRuleIds(): LintRuleId[] {
     'no-hardcoded-radii',
     'no-orphaned-variables',
     'no-unknown-styles',
+    'prefer-semantic-variables',
   ];
 }
 
@@ -126,6 +140,11 @@ export function getRuleMetadata(): Array<{ id: LintRuleId; name: string; descrip
       id: 'no-unknown-styles',
       name: 'No Unknown Styles',
       description: 'Flags nodes using local styles that do not correspond to tokens',
+    },
+    {
+      id: 'prefer-semantic-variables',
+      name: 'Prefer Semantic Variables',
+      description: 'Flags nodes bound to core variables when semantic alternatives exist',
     },
   ];
 }

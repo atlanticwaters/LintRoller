@@ -1,0 +1,14 @@
+{
+  "font": {
+    "font-family": {
+      "display": {
+        "$type": "text",
+        "$value": "THD LgVar Beta"
+      },
+      "informational": {
+        "$type": "text",
+        "$value": "THD SmVar Beta"
+      }
+    }
+  }
+}

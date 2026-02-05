@@ -41,6 +41,11 @@ const RULES: Array<{ id: LintRuleId; name: string; description: string }> = [
     name: 'No Unknown Styles',
     description: 'Flags styles not in the token set',
   },
+  {
+    id: 'prefer-semantic-variables',
+    name: 'Prefer Semantic Variables',
+    description: 'Flags core variables when semantic alternatives exist',
+  },
 ];
 
 export function ConfigPanel({ config, onChange }: ConfigPanelProps) {

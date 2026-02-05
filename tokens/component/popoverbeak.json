@@ -1,0 +1,22 @@
+{
+  "popoverBeak": {
+    "spacing": {
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-4}"
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.background.container-color.white}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{system.background.container-color.white}"
+      }
+    }
+  }
+}

@@ -1,102 +1,599 @@
 /**
- * Auto-Fix Module
+ * Auto-Fix Module (Value-First Design)
  *
- * Applies token bindings to fix lint violations.
+ * Binds Figma node properties to the correct design token variables.
+ *
+ * CRITICAL INVARIANT: Fixes NEVER change the visual appearance.
+ * The node's current color/number value is preserved exactly — only the
+ * variable binding changes.
+ *
+ * WORKFLOW:
+ * 1. Read the node's current visual value (fill color, stroke color, or number)
+ * 2. Find ALL Figma variables that resolve to EXACTLY that value (following aliases)
+ * 3. Pick the best match using context (text/icon/bg/border) + token path hint
+ * 4. Bind — guaranteed zero visual change
+ *
+ * MATCHING:
+ * - Phase 1: Name-based (full path, name-only, suffix) with value verification
+ * - Phase 2: Value-first — byResolvedColor/byResolvedNumber + context scoring
  */
 
-import type { LintRuleId, ThemeConfig } from '../shared/types';
+import type { LintRuleId, ThemeConfig, TokenCollection } from '../shared/types';
 import type { FixActionDetail } from '../shared/messages';
-import { normalizePath, pathEndsWith, pathContains } from '../shared/path-utils';
+import { normalizePath, pathEndsWith } from '../shared/path-utils';
+import { rgbToHex } from './inspector';
 
-/**
- * Result of applying a fix
- */
+// ─── Types ────────────────────────────────────────────────────────────────
+
+/** Result of applying a fix */
 export interface FixResult {
   success: boolean;
   message?: string;
-  /** Value before the fix was applied */
   beforeValue?: string;
-  /** Value after the fix was applied */
   afterValue?: string;
-  /** Type of fix action performed */
   actionType?: 'rebind' | 'unbind' | 'detach' | 'apply-style';
 }
 
+/** Callback for progress updates during bulk fix */
+export type BulkFixProgressCallback = (progress: {
+  current: number;
+  total: number;
+  currentAction: FixActionDetail;
+}) => void;
+
+// ─── Variable Index ──────────────────────────────────────────────────────
+
 /**
- * Find a Figma variable that matches the given token path
- *
- * Note: The figmaVariableReferences in the themes file contain Tokens Studio
- * internal IDs (SHA-1 hashes), not Figma variable IDs (which look like
- * "VariableID:10:337"). So we must search by variable name instead.
+ * Pre-built index of all local Figma variables.
+ * Includes alias-resolved color/number maps for value-first matching.
  */
-async function findVariableForToken(
-  tokenPath: string,
-  _themeConfigs: ThemeConfig[]
-): Promise<Variable | null> {
-  console.log('[Fixer] Looking for variable for token:', tokenPath);
+interface VariableIndex {
+  /** normalized "collectionName/varName" → Variable */
+  byFullPath: Map<string, Variable>;
+  /** normalized "varName" → Variable[] (may span collections) */
+  byName: Map<string, Variable[]>;
+  /** collectionId → normalized collection name */
+  collectionNames: Map<string, string>;
+  /** collectionId → defaultModeId */
+  defaultModes: Map<string, string>;
+  /** hex (with alpha) → Variable[] (resolved through aliases; semantic first) */
+  byResolvedColor: Map<string, Variable[]>;
+  /** number → Variable[] (resolved through aliases; semantic first) */
+  byResolvedNumber: Map<number, Variable[]>;
+  /** variableId → hex (with alpha, for quick value verification after name match) */
+  resolvedColorById: Map<string, string>;
+}
 
-  // Fall back to searching by name
-  const variables = await figma.variables.getLocalVariablesAsync();
-  console.log('[Fixer] Searching ' + variables.length + ' local variables by name');
+let _cachedIndex: VariableIndex | null = null;
+let _indexTimestamp = 0;
+const INDEX_TTL_MS = 5000;
 
-  if (variables.length === 0) {
-    console.log('[Fixer] No local variables found in document');
-    return null;
+// ─── Alias Resolution ────────────────────────────────────────────────────
+
+type RGBA = { r: number; g: number; b: number; a?: number };
+
+/**
+ * Follow alias chains to resolve a COLOR variable to its final RGBA value.
+ * Semantic variables (e.g., system/text/on-surface-color/primary) store
+ * VariableAlias references to core variables — this resolves through those.
+ */
+function resolveToRgba(
+  variable: Variable,
+  defaultModes: Map<string, string>,
+  variableById: Map<string, Variable>,
+  visited?: Set<string>
+): RGBA | null {
+  const seen = visited || new Set<string>();
+  if (seen.has(variable.id)) return null; // circular
+  seen.add(variable.id);
+
+  const modeId = defaultModes.get(variable.variableCollectionId);
+  if (!modeId) return null;
+
+  const value = variable.valuesByMode[modeId];
+  if (!value || typeof value !== 'object') return null;
+
+  // Direct RGBA value
+  if ('r' in value) return value as RGBA;
+
+  // VariableAlias — follow the reference
+  if ('type' in value && (value as { type: string }).type === 'VARIABLE_ALIAS') {
+    const aliasId = (value as { type: string; id: string }).id;
+    const aliasVar = variableById.get(aliasId);
+    if (!aliasVar) return null; // external library or deleted variable
+    return resolveToRgba(aliasVar, defaultModes, variableById, seen);
   }
 
-  // Normalize the token path for matching
-  const normalizedTokenPath = normalizePath(tokenPath);
-  console.log('[Fixer] Normalized token path:', normalizedTokenPath);
-
-  // Extract just the last segment for partial matching
-  const tokenPathSegments = normalizedTokenPath.split('/');
-  const lastSegment = tokenPathSegments[tokenPathSegments.length - 1];
-
-  for (const variable of variables) {
-    const normalizedVarName = normalizePath(variable.name);
-    const varNameSegments = normalizedVarName.split('/');
-    const varLastSegment = varNameSegments[varNameSegments.length - 1];
-
-    // Exact match on full path
-    if (normalizedVarName === normalizedTokenPath) {
-      console.log('[Fixer] Found exact name match:', variable.name);
-      return variable;
-    }
-
-    // Check if token path ends with variable name (for nested tokens)
-    if (pathEndsWith(tokenPath, variable.name)) {
-      console.log('[Fixer] Found partial match (token ends with var):', variable.name);
-      return variable;
-    }
-
-    // Check if variable name ends with token path
-    if (pathEndsWith(variable.name, tokenPath)) {
-      console.log('[Fixer] Found partial match (var ends with token):', variable.name);
-      return variable;
-    }
-
-    // Check if last segments match (e.g., "brand-300" matches "brand/brand-300")
-    if (lastSegment === varLastSegment) {
-      console.log('[Fixer] Found last segment match:', variable.name);
-      return variable;
-    }
-
-    // Check if variable name contains the token path
-    if (pathContains(variable.name, tokenPath)) {
-      console.log('[Fixer] Found contains match:', variable.name);
-      return variable;
-    }
-  }
-
-  // Log first few variables for debugging
-  console.log('[Fixer] Sample variable names:', variables.slice(0, 5).map(v => v.name));
-  console.log('[Fixer] No matching variable found for:', tokenPath);
   return null;
 }
 
+/** Follow alias chains to resolve a FLOAT variable to its final number value */
+function resolveToNumber(
+  variable: Variable,
+  defaultModes: Map<string, string>,
+  variableById: Map<string, Variable>,
+  visited?: Set<string>
+): number | null {
+  const seen = visited || new Set<string>();
+  if (seen.has(variable.id)) return null;
+  seen.add(variable.id);
+
+  const modeId = defaultModes.get(variable.variableCollectionId);
+  if (!modeId) return null;
+
+  const value = variable.valuesByMode[modeId];
+  if (typeof value === 'number') return value;
+
+  if (value && typeof value === 'object' && 'type' in value &&
+      (value as { type: string }).type === 'VARIABLE_ALIAS') {
+    const aliasId = (value as { type: string; id: string }).id;
+    const aliasVar = variableById.get(aliasId);
+    if (!aliasVar) return null;
+    return resolveToNumber(aliasVar, defaultModes, variableById, seen);
+  }
+
+  return null;
+}
+
+function isSemanticCollection(collName: string): boolean {
+  return collName === 'system' || collName.includes('semantic') || collName.includes('component');
+}
+
 /**
- * Get a string representation of a color for display
+ * Check if a variable is semantic (vs core/primitive).
+ * Checks BOTH the variable name AND collection name.
+ * Semantic variables have names like "system/text/...", "component/button/...", etc.
+ * Core variables have names like "color/moonlight/...", "spacing/...", etc.
  */
+function isSemanticVar(normalizedVarName: string, collName: string): boolean {
+  if (normalizedVarName.startsWith('system/') || normalizedVarName.startsWith('component/')) {
+    return true;
+  }
+  return isSemanticCollection(collName);
+}
+
+/**
+ * Check if a variable is a component-scoped variable (e.g., component/text/button-color/...).
+ * Component variables are scoped to specific components and should NOT be used as
+ * replacement candidates during value-based matching (Phase 2).
+ * Only system-level semantic variables should be picked by the fixer.
+ */
+function isComponentVar(normalizedVarName: string, collName: string): boolean {
+  return normalizedVarName.startsWith('component/') || collName.includes('component');
+}
+
+// ─── Index Building ──────────────────────────────────────────────────────
+
+async function buildVariableIndex(): Promise<VariableIndex> {
+  const variables = await figma.variables.getLocalVariablesAsync();
+  const collections = await figma.variables.getLocalVariableCollectionsAsync();
+
+  const collectionNames = new Map<string, string>();
+  const defaultModes = new Map<string, string>();
+  for (const c of collections) {
+    collectionNames.set(c.id, normalizePath(c.name));
+    defaultModes.set(c.id, c.defaultModeId);
+  }
+
+  const byFullPath = new Map<string, Variable>();
+  const byName = new Map<string, Variable[]>();
+  const variableById = new Map<string, Variable>();
+
+  for (const v of variables) {
+    if (Object.keys(v.valuesByMode).length === 0) continue;
+    variableById.set(v.id, v);
+
+    const collName = collectionNames.get(v.variableCollectionId) || '';
+    const normalizedName = normalizePath(v.name);
+    const fullPath = collName ? collName + '/' + normalizedName : normalizedName;
+
+    byFullPath.set(fullPath, v);
+
+    const list = byName.get(normalizedName) || [];
+    list.push(v);
+    byName.set(normalizedName, list);
+  }
+
+  // Build resolved value indexes (following ALL alias chains)
+  const byResolvedColor = new Map<string, Variable[]>();
+  const byResolvedNumber = new Map<number, Variable[]>();
+  const resolvedColorById = new Map<string, string>();
+
+  for (const v of variables) {
+    if (Object.keys(v.valuesByMode).length === 0) continue;
+
+    const collName = collectionNames.get(v.variableCollectionId) || '';
+    const normalizedName = normalizePath(v.name);
+    const isSemantic = isSemanticVar(normalizedName, collName);
+
+    if (v.resolvedType === 'COLOR') {
+      const rgba = resolveToRgba(v, defaultModes, variableById);
+      if (rgba) {
+        // Use full hex (including alpha) to distinguish opaque from semi-transparent.
+        // This prevents matching e.g. #ffffff (opaque) to #ffffffb2 (70% opacity).
+        const hex = rgbToHex(rgba);
+
+        resolvedColorById.set(v.id, hex);
+
+        const list = byResolvedColor.get(hex) || [];
+        if (isSemantic) {
+          list.unshift(v); // semantic variables first
+        } else {
+          list.push(v);
+        }
+        byResolvedColor.set(hex, list);
+      }
+    } else if (v.resolvedType === 'FLOAT') {
+      const num = resolveToNumber(v, defaultModes, variableById);
+      if (num !== null) {
+        const list = byResolvedNumber.get(num) || [];
+        if (isSemantic) {
+          list.unshift(v);
+        } else {
+          list.push(v);
+        }
+        byResolvedNumber.set(num, list);
+      }
+    }
+  }
+
+  console.log('[Fixer] Index built: ' + byFullPath.size + ' vars, ' +
+    byResolvedColor.size + ' unique colors, ' + byResolvedNumber.size + ' unique numbers');
+
+  return {
+    byFullPath, byName, collectionNames, defaultModes,
+    byResolvedColor, byResolvedNumber, resolvedColorById,
+  };
+}
+
+/** Get or build the variable index (cached for 5s) */
+async function getVariableIndex(): Promise<VariableIndex> {
+  const now = Date.now();
+  if (_cachedIndex && (now - _indexTimestamp) < INDEX_TTL_MS) {
+    return _cachedIndex;
+  }
+  _cachedIndex = await buildVariableIndex();
+  _indexTimestamp = now;
+  return _cachedIndex;
+}
+
+// ─── Context Helpers ─────────────────────────────────────────────────────
+
+const ICON_NODE_TYPES = ['VECTOR', 'BOOLEAN_OPERATION', 'STAR', 'LINE', 'ELLIPSE', 'POLYGON'];
+
+function getContextKeywords(property: string, nodeType: string): string[] {
+  if (property.includes('stroke')) return ['border'];
+  if (property.includes('fill')) {
+    if (nodeType === 'TEXT') return ['text'];
+    if (ICON_NODE_TYPES.includes(nodeType)) return ['icon'];
+    return ['background'];
+  }
+  return [];
+}
+
+function contextScore(normalizedVarName: string, keywords: string[]): number {
+  if (keywords.length === 0) return 0;
+  const segments = normalizedVarName.split('/');
+  return keywords.some(k => segments.includes(k)) ? 10 : 0;
+}
+
+// ─── Read Current Node Value ─────────────────────────────────────────────
+
+interface CurrentColorValue { type: 'color'; hex: string }
+interface CurrentNumberValue { type: 'number'; value: number }
+type CurrentValue = CurrentColorValue | CurrentNumberValue | null;
+
+/**
+ * Read the current visual value from a node property.
+ * This is the value we MUST preserve when applying the fix.
+ */
+function readCurrentValue(node: SceneNode, property: string): CurrentValue {
+  // Color fills (include paint opacity to distinguish opaque from semi-transparent)
+  const fillMatch = property.match(/^fills\[(\d+)\]$/);
+  if (fillMatch && 'fills' in node) {
+    const idx = parseInt(fillMatch[1], 10);
+    const fills = (node as GeometryMixin).fills;
+    if (Array.isArray(fills) && fills[idx] && fills[idx].type === 'SOLID') {
+      const paint = fills[idx] as SolidPaint;
+      const opacity = paint.opacity ?? 1;
+      const hex = rgbToHex({ ...paint.color, a: opacity });
+      return { type: 'color', hex };
+    }
+  }
+
+  // Color strokes (include paint opacity)
+  const strokeMatch = property.match(/^strokes\[(\d+)\]$/);
+  if (strokeMatch && 'strokes' in node) {
+    const idx = parseInt(strokeMatch[1], 10);
+    const strokes = (node as GeometryMixin).strokes;
+    if (Array.isArray(strokes) && strokes[idx] && strokes[idx].type === 'SOLID') {
+      const paint = strokes[idx] as SolidPaint;
+      const opacity = paint.opacity ?? 1;
+      const hex = rgbToHex({ ...paint.color, a: opacity });
+      return { type: 'color', hex };
+    }
+  }
+
+  // Number properties
+  const nodeWithProps = node as unknown as Record<string, unknown>;
+  const val = nodeWithProps[property];
+  if (typeof val === 'number') {
+    return { type: 'number', value: val };
+  }
+
+  return null;
+}
+
+// ─── Variable Matching (Value-First) ────────────────────────────────────
+
+function typeMatches(v: Variable, expected?: VariableResolvedDataType): boolean {
+  return !expected || v.resolvedType === expected;
+}
+
+/**
+ * Find the Figma variable to bind for a given token path.
+ *
+ * Value-first design:
+ * 1. Try name-based match (full path, name-only, suffix) — reject if resolved value mismatches
+ * 2. Fall back to value-based lookup — find all variables with exact same color, score by context
+ *
+ * This guarantees zero visual change.
+ */
+function findVariableForToken(
+  tokenPath: string,
+  index: VariableIndex,
+  expectedType: VariableResolvedDataType | undefined,
+  tokens: TokenCollection | null | undefined,
+  context: { property: string; nodeType: string } | undefined,
+  currentValue: CurrentValue
+): Variable | null {
+  const cvDesc = currentValue
+    ? (currentValue.type === 'color' ? currentValue.hex : String(currentValue.value))
+    : 'unknown';
+  console.log('[Fixer] Finding variable for "' + tokenPath + '" (current: ' + cvDesc + ')');
+
+  const keywords = context ? getContextKeywords(context.property, context.nodeType) : [];
+
+  // ── Phase 1: Name-based match with value verification ──
+  // Only try the PRIMARY token path here — NOT alias chain paths.
+  // Alias chains point to core tokens (e.g., color.moonlight.moonlight-500)
+  // which would match core variables, bypassing semantic ones.
+  // Phase 2 handles value-based matching with proper semantic scoring.
+  {
+    const match = tryNameBasedMatch(tokenPath, index, expectedType, context);
+    if (match) {
+      // Verify the variable resolves to the same value as the node's current color
+      if (currentValue && currentValue.type === 'color') {
+        const varHex = index.resolvedColorById.get(match.id);
+        if (varHex && varHex !== currentValue.hex) {
+          console.log('[Fixer] Name match "' + match.name + '" rejected: ' +
+            varHex + ' != ' + currentValue.hex);
+          // Fall through to Phase 2
+        } else {
+          console.log('[Fixer] Name match: ' + match.name);
+          return match;
+        }
+      } else {
+        console.log('[Fixer] Name match: ' + match.name);
+        return match;
+      }
+    }
+  }
+
+  // ── Phase 2: Value-first match with context scoring ──
+  // Exclude component-scoped variables (component/...) — they are scoped to specific
+  // components and should not be used as general-purpose replacement candidates.
+  const excludeComponent = (v: Variable): boolean => {
+    const collName = index.collectionNames.get(v.variableCollectionId) || '';
+    return !isComponentVar(normalizePath(v.name), collName);
+  };
+
+  if (currentValue && currentValue.type === 'color') {
+    const candidates = index.byResolvedColor.get(currentValue.hex);
+    if (candidates && candidates.length > 0) {
+      const nonComponent = candidates.filter(v => typeMatches(v, expectedType) && excludeComponent(v));
+      if (nonComponent.length > 0) {
+        const best = pickBestVariable(nonComponent, index, keywords, tokenPath, tokens);
+        console.log('[Fixer] Value match (' + nonComponent.length + ' candidates, component excluded): ' + best.name);
+        return best;
+      }
+      // Fallback: if no non-component candidates, use all typed candidates
+      const typed = candidates.filter(v => typeMatches(v, expectedType));
+      if (typed.length > 0) {
+        const best = pickBestVariable(typed, index, keywords, tokenPath, tokens);
+        console.log('[Fixer] Value match (fallback with component, ' + typed.length + ' candidates): ' + best.name);
+        return best;
+      }
+    }
+  }
+
+  if (currentValue && currentValue.type === 'number') {
+    const candidates = index.byResolvedNumber.get(currentValue.value);
+    if (candidates && candidates.length > 0) {
+      const nonComponent = candidates.filter(v => typeMatches(v, expectedType) && excludeComponent(v));
+      if (nonComponent.length > 0) {
+        const best = pickBestVariable(nonComponent, index, keywords, tokenPath, tokens);
+        console.log('[Fixer] Number value match (' + nonComponent.length + ' candidates, component excluded): ' + best.name);
+        return best;
+      }
+      // Fallback: if no non-component candidates, use all typed candidates
+      const typed = candidates.filter(v => typeMatches(v, expectedType));
+      if (typed.length > 0) {
+        const best = pickBestVariable(typed, index, keywords, tokenPath, tokens);
+        console.log('[Fixer] Number value match (fallback with component, ' + typed.length + ' candidates): ' + best.name);
+        return best;
+      }
+    }
+  }
+
+  console.log('[Fixer] No variable found for: ' + tokenPath);
+  return null;
+}
+
+/** Try name-based strategies 1-3 for a single path */
+function tryNameBasedMatch(
+  tokenPath: string,
+  index: VariableIndex,
+  expectedType: VariableResolvedDataType | undefined,
+  context?: { property: string; nodeType: string }
+): Variable | null {
+  const normalized = normalizePath(tokenPath);
+
+  // Strategy 1: Full path (collection/varName)
+  const full = index.byFullPath.get(normalized);
+  if (full && typeMatches(full, expectedType)) return full;
+
+  // Strategy 2: Name only
+  const nameMatches = index.byName.get(normalized);
+  if (nameMatches) {
+    const typed = nameMatches.filter(v => typeMatches(v, expectedType));
+    if (typed.length === 1) return typed[0];
+    if (typed.length > 1) return pickBestFromMultiple(typed, index, context);
+  }
+
+  // Strategy 3: Suffix match (variable name = trailing portion of token path, ≥2 segments)
+  let bestSuffix: Variable | null = null;
+  let bestLen = 0;
+  for (const [varName, vars] of index.byName) {
+    const segCount = varName.split('/').length;
+    if (segCount >= 2 && segCount > bestLen && pathEndsWith(normalized, varName)) {
+      const typed = vars.filter(v => typeMatches(v, expectedType));
+      if (typed.length > 0) {
+        bestSuffix = typed.length === 1 ? typed[0] : pickBestFromMultiple(typed, index, context);
+        bestLen = segCount;
+      }
+    }
+  }
+
+  return bestSuffix;
+}
+
+/** Pick the best variable when multiple share the same name (across collections) */
+function pickBestFromMultiple(
+  vars: Variable[],
+  index: VariableIndex,
+  context?: { property: string; nodeType: string }
+): Variable {
+  const keywords = context ? getContextKeywords(context.property, context.nodeType) : [];
+
+  // Hard partition: system semantic > core (component variables excluded)
+  const system: Variable[] = [];
+  const nonComponent: Variable[] = [];
+  for (const v of vars) {
+    const normalizedName = normalizePath(v.name);
+    const collName = index.collectionNames.get(v.variableCollectionId) || '';
+    if (isComponentVar(normalizedName, collName)) continue;
+    nonComponent.push(v);
+    if (isSemanticVar(normalizedName, collName)) system.push(v);
+  }
+  const pool = system.length > 0 ? system : nonComponent.length > 0 ? nonComponent : vars;
+  if (pool.length === 1) return pool[0];
+
+  let best = pool[0];
+  let bestScore = -1;
+
+  for (const v of pool) {
+    let score = 0;
+    score += contextScore(normalizePath(v.name), keywords);
+    if (score > bestScore) {
+      bestScore = score;
+      best = v;
+    }
+  }
+
+  return best;
+}
+
+/**
+ * Pick the best variable from value-matched candidates.
+ *
+ * Hard partition: system semantic variables (system/...) ALWAYS win over core.
+ * Component variables (component/...) are excluded — they are scoped to
+ * specific components and should not be used as general-purpose replacements.
+ *
+ * Within the semantic pool, scores by:
+ * - +10: context keyword match (text/icon/background/border)
+ * - +20: variable name exactly matches the suggested token path
+ * - +15: variable name is a suffix of the token path (≥2 segments)
+ */
+function pickBestVariable(
+  candidates: Variable[],
+  index: VariableIndex,
+  keywords: string[],
+  tokenPath: string,
+  _tokens: TokenCollection | null | undefined
+): Variable {
+  if (candidates.length === 1) return candidates[0];
+
+  // Hard partition: system semantic > core (component variables excluded)
+  // Three tiers: system/ variables are preferred, then core, never component/
+  const system: Variable[] = [];
+  const core: Variable[] = [];
+  for (const v of candidates) {
+    const normalizedName = normalizePath(v.name);
+    const collName = index.collectionNames.get(v.variableCollectionId) || '';
+    if (isComponentVar(normalizedName, collName)) {
+      continue; // Skip component-scoped variables entirely
+    }
+    if (isSemanticVar(normalizedName, collName)) {
+      system.push(v);
+    } else {
+      core.push(v);
+    }
+  }
+  const pool = system.length > 0 ? system : core;
+  if (pool.length === 1) return pool[0];
+
+  // Score within the pool using ONLY the primary token path (not alias chain)
+  const normalizedTokenPath = normalizePath(tokenPath);
+
+  let best = pool[0];
+  let bestScore = -Infinity;
+
+  for (const v of pool) {
+    let score = 0;
+    const normalizedName = normalizePath(v.name);
+    const collName = index.collectionNames.get(v.variableCollectionId) || '';
+    const fullPath = collName ? collName + '/' + normalizedName : normalizedName;
+
+    // Context keyword match (+10) — most important for disambiguation
+    score += contextScore(normalizedName, keywords);
+
+    // Token path name similarity (+20 exact, +15 suffix)
+    // Only check against the PRIMARY token path — NOT alias chain paths,
+    // which point to core tokens and would give core variables a name bonus.
+    if (fullPath === normalizedTokenPath || normalizedName === normalizedTokenPath) {
+      score += 20;
+    } else if (normalizedName.split('/').length >= 2 && pathEndsWith(normalizedTokenPath, normalizedName)) {
+      score += 15;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = v;
+    }
+  }
+
+  return best;
+}
+
+// ─── Expected Type Mapping ───────────────────────────────────────────────
+
+function getExpectedVariableType(ruleId: LintRuleId): VariableResolvedDataType | undefined {
+  switch (ruleId) {
+    case 'no-hardcoded-colors':
+      return 'COLOR';
+    case 'no-hardcoded-spacing':
+    case 'no-hardcoded-radii':
+    case 'no-hardcoded-typography':
+      return 'FLOAT';
+    default:
+      return undefined;
+  }
+}
+
+// ─── Property Application ────────────────────────────────────────────────
+
 function colorToString(paint: SolidPaint): string {
   const r = Math.round(paint.color.r * 255);
   const g = Math.round(paint.color.g * 255);
@@ -104,204 +601,125 @@ function colorToString(paint: SolidPaint): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
-/**
- * Apply a color variable to a fill or stroke
- */
-async function applyColorFix(
+async function applyColorBinding(
   node: SceneNode,
   property: string,
   variable: Variable
 ): Promise<FixResult> {
-  // Parse property to get fill/stroke index
   const fillMatch = property.match(/^fills\[(\d+)\]$/);
   const strokeMatch = property.match(/^strokes\[(\d+)\]$/);
 
   if (fillMatch && 'fills' in node) {
-    const index = parseInt(fillMatch[1], 10);
+    const idx = parseInt(fillMatch[1], 10);
     const fills = (node as GeometryMixin).fills;
+    if (!Array.isArray(fills) || !fills[idx]) {
+      return { success: false, message: 'Fill not found at index ' + idx };
+    }
+    try {
+      const paint = fills[idx] as SolidPaint;
+      const beforeValue = paint.boundVariables?.color
+        ? `var(${paint.boundVariables.color.id})`
+        : (paint.type === 'SOLID' ? colorToString(paint) : 'gradient/image');
 
-    if (Array.isArray(fills) && fills[index]) {
-      try {
-        // Capture before value
-        const paint = fills[index] as SolidPaint;
-        const beforeValue = paint.boundVariables?.color
-          ? `var(${paint.boundVariables.color.id})`
-          : (paint.type === 'SOLID' ? colorToString(paint) : 'gradient/image');
+      const newFills = [...fills] as SolidPaint[];
+      newFills[idx] = figma.variables.setBoundVariableForPaint(
+        newFills[idx] as SolidPaint, 'color', variable
+      );
+      (node as GeometryMixin).fills = newFills;
 
-        // Create a copy of the fills array
-        const newFills = [...fills] as SolidPaint[];
-
-        // Create bound variable reference
-        const paintWithVariable = figma.variables.setBoundVariableForPaint(
-          newFills[index] as SolidPaint,
-          'color',
-          variable
-        );
-
-        newFills[index] = paintWithVariable;
-        (node as GeometryMixin).fills = newFills;
-
-        return {
-          success: true,
-          beforeValue,
-          afterValue: variable.name,
-          actionType: 'rebind',
-        };
-      } catch (error) {
-        return {
-          success: false,
-          message: 'Failed to apply fill variable: ' + (error instanceof Error ? error.message : 'Unknown error'),
-        };
-      }
+      return { success: true, beforeValue, afterValue: variable.name, actionType: 'rebind' };
+    } catch (e) {
+      return { success: false, message: 'Fill bind failed: ' + (e instanceof Error ? e.message : String(e)) };
     }
   }
 
   if (strokeMatch && 'strokes' in node) {
-    const index = parseInt(strokeMatch[1], 10);
+    const idx = parseInt(strokeMatch[1], 10);
     const strokes = (node as GeometryMixin).strokes;
+    if (!Array.isArray(strokes) || !strokes[idx]) {
+      return { success: false, message: 'Stroke not found at index ' + idx };
+    }
+    try {
+      const paint = strokes[idx] as SolidPaint;
+      const beforeValue = paint.boundVariables?.color
+        ? `var(${paint.boundVariables.color.id})`
+        : (paint.type === 'SOLID' ? colorToString(paint) : 'gradient/image');
 
-    if (Array.isArray(strokes) && strokes[index]) {
-      try {
-        // Capture before value
-        const paint = strokes[index] as SolidPaint;
-        const beforeValue = paint.boundVariables?.color
-          ? `var(${paint.boundVariables.color.id})`
-          : (paint.type === 'SOLID' ? colorToString(paint) : 'gradient/image');
+      const newStrokes = [...strokes] as SolidPaint[];
+      newStrokes[idx] = figma.variables.setBoundVariableForPaint(
+        newStrokes[idx] as SolidPaint, 'color', variable
+      );
+      (node as GeometryMixin).strokes = newStrokes;
 
-        const newStrokes = [...strokes] as SolidPaint[];
-
-        const paintWithVariable = figma.variables.setBoundVariableForPaint(
-          newStrokes[index] as SolidPaint,
-          'color',
-          variable
-        );
-
-        newStrokes[index] = paintWithVariable;
-        (node as GeometryMixin).strokes = newStrokes;
-
-        return {
-          success: true,
-          beforeValue,
-          afterValue: variable.name,
-          actionType: 'rebind',
-        };
-      } catch (error) {
-        return {
-          success: false,
-          message: 'Failed to apply stroke variable: ' + (error instanceof Error ? error.message : 'Unknown error'),
-        };
-      }
+      return { success: true, beforeValue, afterValue: variable.name, actionType: 'rebind' };
+    } catch (e) {
+      return { success: false, message: 'Stroke bind failed: ' + (e instanceof Error ? e.message : String(e)) };
     }
   }
 
-  return { success: false, message: 'Could not find property to fix: ' + property };
+  return { success: false, message: 'Unknown color property: ' + property };
 }
 
-/**
- * Get the current value of a number property for before/after tracking
- */
 function getNumberPropertyValue(node: SceneNode, property: string): string {
   const nodeWithProps = node as unknown as Record<string, unknown>;
   const boundVars = (node as unknown as { boundVariables?: Record<string, { id: string }> }).boundVariables;
-
-  // Check if property has a bound variable
   if (boundVars && boundVars[property]) {
     return `var(${boundVars[property].id})`;
   }
-
-  // Get the raw value
   const value = nodeWithProps[property];
-  if (typeof value === 'number') {
-    return String(value);
-  }
-
-  return 'unknown';
+  return typeof value === 'number' ? String(value) : 'unknown';
 }
 
-/**
- * Apply a number variable to a spacing/radius property
- */
-async function applyNumberFix(
+async function applyNumberBinding(
   node: SceneNode,
   property: string,
   variable: Variable
 ): Promise<FixResult> {
+  if (!('boundVariables' in node)) {
+    return { success: false, message: 'Node does not support variable bindings' };
+  }
+
+  const fieldMap: Record<string, VariableBindableNodeField> = {
+    itemSpacing: 'itemSpacing',
+    counterAxisSpacing: 'counterAxisSpacing',
+    paddingTop: 'paddingTop',
+    paddingRight: 'paddingRight',
+    paddingBottom: 'paddingBottom',
+    paddingLeft: 'paddingLeft',
+    cornerRadius: 'topLeftRadius',
+    topLeftRadius: 'topLeftRadius',
+    topRightRadius: 'topRightRadius',
+    bottomLeftRadius: 'bottomLeftRadius',
+    bottomRightRadius: 'bottomRightRadius',
+  };
+
+  const field = fieldMap[property];
+  if (!field) {
+    return { success: false, message: 'Property is not bindable: ' + property };
+  }
+
   try {
-    // Check if the property can be bound
-    if (!('boundVariables' in node)) {
-      return { success: false, message: 'Node does not support variable bindings' };
-    }
-
-    // Map property names to their bindable field names
-    const propertyMap: Record<string, VariableBindableNodeField> = {
-      // Spacing
-      itemSpacing: 'itemSpacing',
-      counterAxisSpacing: 'counterAxisSpacing',
-      paddingTop: 'paddingTop',
-      paddingRight: 'paddingRight',
-      paddingBottom: 'paddingBottom',
-      paddingLeft: 'paddingLeft',
-      // Radius
-      cornerRadius: 'topLeftRadius', // Figma uses individual corners
-      topLeftRadius: 'topLeftRadius',
-      topRightRadius: 'topRightRadius',
-      bottomLeftRadius: 'bottomLeftRadius',
-      bottomRightRadius: 'bottomRightRadius',
-    };
-
-    const bindableField = propertyMap[property];
-    if (!bindableField) {
-      return { success: false, message: 'Property is not bindable: ' + property };
-    }
-
-    // Capture before value
     const beforeValue = getNumberPropertyValue(node, property);
+    const bindableNode = node as SceneNode & {
+      setBoundVariable: (field: VariableBindableNodeField, variable: Variable) => void;
+    };
 
-    // Special handling for corner radius - if uniform, bind all corners
-    if (property === 'cornerRadius' && 'cornerRadius' in node) {
-      const cornerNode = node as RectangleNode | FrameNode | ComponentNode | InstanceNode;
-      if (typeof cornerNode.cornerRadius === 'number') {
-        // Uniform radius - bind all corners
-        cornerNode.setBoundVariable('topLeftRadius', variable);
-        cornerNode.setBoundVariable('topRightRadius', variable);
-        cornerNode.setBoundVariable('bottomLeftRadius', variable);
-        cornerNode.setBoundVariable('bottomRightRadius', variable);
-        return {
-          success: true,
-          beforeValue,
-          afterValue: variable.name,
-          actionType: 'rebind',
-        };
-      }
+    if (property === 'cornerRadius' && 'cornerRadius' in node && typeof (node as FrameNode).cornerRadius === 'number') {
+      bindableNode.setBoundVariable('topLeftRadius', variable);
+      bindableNode.setBoundVariable('topRightRadius', variable);
+      bindableNode.setBoundVariable('bottomLeftRadius', variable);
+      bindableNode.setBoundVariable('bottomRightRadius', variable);
+    } else {
+      bindableNode.setBoundVariable(field, variable);
     }
 
-    // Bind the variable
-    (node as SceneNode & { setBoundVariable: (field: VariableBindableNodeField, variable: Variable) => void })
-      .setBoundVariable(bindableField, variable);
-
-    return {
-      success: true,
-      beforeValue,
-      afterValue: variable.name,
-      actionType: 'rebind',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      message: 'Failed to apply variable: ' + (error instanceof Error ? error.message : 'Unknown error'),
-    };
+    return { success: true, beforeValue, afterValue: variable.name, actionType: 'rebind' };
+  } catch (e) {
+    return { success: false, message: 'Number bind failed: ' + (e instanceof Error ? e.message : String(e)) };
   }
 }
 
-/**
- * Apply a number variable to a typography property on a text node
- *
- * Note: Only paragraphSpacing can be bound to variables on text nodes.
- * fontSize, lineHeight, and letterSpacing are per-character range properties
- * and cannot be bound to variables through the standard API.
- * For these properties, use "Apply Style" to apply an existing text style instead.
- */
-async function applyTypographyFix(
+async function applyTypographyBinding(
   node: SceneNode,
   property: string,
   variable: Variable
@@ -310,137 +728,103 @@ async function applyTypographyFix(
     return { success: false, message: 'Node is not a text node' };
   }
 
-  const textNode = node as TextNode;
-
-  try {
-    switch (property) {
-      case 'paragraphSpacing': {
-        // Capture before value
-        const beforeValue = getNumberPropertyValue(textNode, 'paragraphSpacing');
-
-        // Paragraph spacing can be bound to a variable at the node level
-        textNode.setBoundVariable('paragraphSpacing', variable);
-        return {
-          success: true,
-          beforeValue,
-          afterValue: variable.name,
-          actionType: 'rebind',
-        };
-      }
-
-      case 'fontSize':
-      case 'lineHeight':
-      case 'letterSpacing':
-        // These properties cannot be bound to variables - must use text styles
-        return {
-          success: false,
-          message: property + ' cannot be bound to variables. Use "Apply Style" with an existing text style instead.',
-        };
-
-      default:
-        return { success: false, message: 'Unknown typography property: ' + property };
+  if (property === 'paragraphSpacing') {
+    try {
+      const textNode = node as TextNode;
+      const beforeValue = getNumberPropertyValue(textNode, 'paragraphSpacing');
+      textNode.setBoundVariable('paragraphSpacing', variable);
+      return { success: true, beforeValue, afterValue: variable.name, actionType: 'rebind' };
+    } catch (e) {
+      return { success: false, message: 'Typography bind failed: ' + (e instanceof Error ? e.message : String(e)) };
     }
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    return {
-      success: false,
-      message: 'Failed to apply typography fix: ' + errorMsg,
-    };
   }
+
+  return {
+    success: false,
+    message: property + ' cannot be bound to variables. Use "Apply Style" with an existing text style instead.',
+  };
 }
 
-/**
- * Apply a fix to a single violation
- */
+// ─── Public Fix API ──────────────────────────────────────────────────────
+
+/** Apply a fix to a single violation */
 export async function applyFix(
   nodeId: string,
   property: string,
   tokenPath: string,
   ruleId: LintRuleId,
-  themeConfigs: ThemeConfig[]
+  _themeConfigs: ThemeConfig[],
+  tokens?: TokenCollection | null
 ): Promise<FixResult> {
-  console.log('[Fixer] applyFix called:', { nodeId, property, tokenPath, ruleId });
+  console.log('[Fixer] applyFix:', { nodeId, property, tokenPath, ruleId });
 
   try {
-    // Find the node
     const node = await figma.getNodeByIdAsync(nodeId);
     if (!node || node.type === 'DOCUMENT' || node.type === 'PAGE') {
-      console.log('[Fixer] Node not found:', nodeId);
       return { success: false, message: 'Node not found: ' + nodeId };
     }
-    console.log('[Fixer] Found node:', node.name, node.type);
 
-    // Find the variable for this token
-    const variable = await findVariableForToken(tokenPath, themeConfigs);
+    const sceneNode = node as SceneNode;
+    const index = await getVariableIndex();
+    const expectedType = getExpectedVariableType(ruleId);
+
+    // Read the node's CURRENT visual value — this is what we must preserve
+    const currentValue = readCurrentValue(sceneNode, property);
+
+    const variable = findVariableForToken(
+      tokenPath, index, expectedType, tokens,
+      { property, nodeType: sceneNode.type },
+      currentValue
+    );
+
     if (!variable) {
-      const msg = 'No Figma variable found for token: ' + tokenPath + '. You may need to sync variables from Tokens Studio first.';
-      console.log('[Fixer]', msg);
-      return { success: false, message: msg };
+      return {
+        success: false,
+        message: 'No Figma variable found for token: ' + tokenPath
+          + (currentValue && currentValue.type === 'color'
+            ? ' (color: ' + currentValue.hex + ')'
+            : '')
+          + '. Sync variables from Tokens Studio if needed.',
+      };
     }
-    console.log('[Fixer] Found variable:', variable.name, 'type:', variable.resolvedType);
 
-    // Apply the fix based on rule type
-    let result: FixResult;
+    console.log('[Fixer] Binding "' + variable.name + '" -> ' + property + ' on "' + sceneNode.name + '"');
+
     switch (ruleId) {
       case 'no-hardcoded-colors':
-        result = await applyColorFix(node as SceneNode, property, variable);
-        break;
+        return applyColorBinding(sceneNode, property, variable);
 
       case 'no-hardcoded-spacing':
       case 'no-hardcoded-radii':
-        result = await applyNumberFix(node as SceneNode, property, variable);
-        break;
+        return applyNumberBinding(sceneNode, property, variable);
 
       case 'no-hardcoded-typography':
-        result = await applyTypographyFix(node as SceneNode, property, variable);
-        break;
+        return applyTypographyBinding(sceneNode, property, variable);
 
       case 'no-orphaned-variables':
-        // Rebind orphaned variable to a new token
-        // Determine the fix type based on the variable type
+      case 'prefer-semantic-variables':
         if (variable.resolvedType === 'COLOR') {
-          result = await applyColorFix(node as SceneNode, property, variable);
-        } else if (variable.resolvedType === 'FLOAT') {
-          // Determine if it's spacing or radius based on property name
-          if (property.includes('Radius') || property === 'cornerRadius') {
-            result = await applyNumberFix(node as SceneNode, property, variable);
-          } else if (property.includes('padding') || property.includes('Spacing') || property === 'itemSpacing' || property === 'counterAxisSpacing') {
-            result = await applyNumberFix(node as SceneNode, property, variable);
-          } else if (property === 'fontSize' || property === 'lineHeight' || property === 'letterSpacing' || property === 'paragraphSpacing') {
-            result = await applyTypographyFix(node as SceneNode, property, variable);
-          } else {
-            result = await applyNumberFix(node as SceneNode, property, variable);
-          }
-        } else {
-          result = { success: false, message: 'Cannot rebind variable of type: ' + variable.resolvedType };
+          return applyColorBinding(sceneNode, property, variable);
         }
-        break;
+        if (variable.resolvedType === 'FLOAT') {
+          if (['fontSize', 'lineHeight', 'letterSpacing', 'paragraphSpacing'].includes(property)) {
+            return applyTypographyBinding(sceneNode, property, variable);
+          }
+          return applyNumberBinding(sceneNode, property, variable);
+        }
+        return { success: false, message: 'Cannot rebind variable type: ' + variable.resolvedType };
 
       default:
-        result = { success: false, message: 'Auto-fix not supported for rule: ' + ruleId };
+        return { success: false, message: 'Auto-fix not supported for: ' + ruleId };
     }
-
-    console.log('[Fixer] Fix result:', result);
-    return result;
-  } catch (error) {
-    const msg = 'Fix error: ' + (error instanceof Error ? error.message : 'Unknown error');
-    console.error('[Fixer]', msg, error);
+  } catch (e) {
+    const msg = 'Fix error: ' + (e instanceof Error ? e.message : String(e));
+    console.error('[Fixer]', msg);
     return { success: false, message: msg };
   }
 }
 
-/**
- * Callback for progress updates during bulk fix
- */
-export type BulkFixProgressCallback = (progress: {
-  current: number;
-  total: number;
-  currentAction: FixActionDetail;
-}) => void;
-
-/**
- * Apply fixes to multiple violations
- */
+/** Apply fixes to multiple violations */
 export async function applyBulkFix(
   fixes: Array<{
     nodeId: string;
@@ -449,34 +833,26 @@ export async function applyBulkFix(
     ruleId: string;
   }>,
   themeConfigs: ThemeConfig[],
-  onProgress?: BulkFixProgressCallback
+  onProgress?: BulkFixProgressCallback,
+  tokens?: TokenCollection | null
 ): Promise<{ successful: number; failed: number; errors: string[]; actions: FixActionDetail[] }> {
   let successful = 0;
   let failed = 0;
   const errors: string[] = [];
   const actions: FixActionDetail[] = [];
-  const total = fixes.length;
 
   for (let i = 0; i < fixes.length; i++) {
     const fix = fixes[i];
 
-    // Get node name for display
     let nodeName = 'Unknown';
     try {
       const node = await figma.getNodeByIdAsync(fix.nodeId);
-      if (node && 'name' in node) {
-        nodeName = node.name;
-      }
-    } catch {
-      // Ignore error, use default name
-    }
+      if (node && 'name' in node) nodeName = node.name;
+    } catch { /* ignore */ }
 
     const result = await applyFix(
-      fix.nodeId,
-      fix.property,
-      fix.tokenPath,
-      fix.ruleId as LintRuleId,
-      themeConfigs
+      fix.nodeId, fix.property, fix.tokenPath,
+      fix.ruleId as LintRuleId, themeConfigs, tokens
     );
 
     const action: FixActionDetail = {
@@ -497,18 +873,11 @@ export async function applyBulkFix(
       successful++;
     } else {
       failed++;
-      if (result.message) {
-        errors.push(fix.nodeId + ': ' + result.message);
-      }
+      if (result.message) errors.push(fix.nodeId + ': ' + result.message);
     }
 
-    // Send progress update
     if (onProgress) {
-      onProgress({
-        current: i + 1,
-        total,
-        currentAction: action,
-      });
+      onProgress({ current: i + 1, total: fixes.length, currentAction: action });
     }
 
     // Yield to prevent blocking
@@ -518,25 +887,18 @@ export async function applyBulkFix(
   return { successful, failed, errors, actions };
 }
 
-/**
- * Get the bound variable name from a paint if it has one
- */
+// ─── Unbind / Detach / Style Operations ──────────────────────────────────
+
 function getBoundVariableFromPaint(paint: SolidPaint): string | null {
-  if (paint.boundVariables?.color) {
-    return paint.boundVariables.color.id;
-  }
-  return null;
+  return paint.boundVariables?.color?.id || null;
 }
 
-/**
- * Unbind a variable from a property (for orphaned variables)
- * This removes the variable binding but keeps the current value
- */
+/** Unbind a variable from a property (keeps current visual value) */
 export async function unbindVariable(
   nodeId: string,
   property: string
 ): Promise<FixResult> {
-  console.log('[Fixer] unbindVariable called:', { nodeId, property });
+  console.log('[Fixer] unbindVariable:', { nodeId, property });
 
   try {
     const node = await figma.getNodeByIdAsync(nodeId);
@@ -545,25 +907,19 @@ export async function unbindVariable(
     }
 
     const sceneNode = node as SceneNode;
-
-    // Handle fills and strokes
     const fillMatch = property.match(/^fills\[(\d+)\]$/);
     const strokeMatch = property.match(/^strokes\[(\d+)\]$/);
 
     if (fillMatch && 'fills' in sceneNode) {
       const index = parseInt(fillMatch[1], 10);
       const fills = (sceneNode as GeometryMixin).fills;
-
       if (Array.isArray(fills) && fills[index]) {
-        const newFills = [...fills];
-        const paint = newFills[index] as SolidPaint;
-
-        // Capture before value
+        const paint = fills[index] as SolidPaint;
         const boundVarId = getBoundVariableFromPaint(paint);
         const beforeValue = boundVarId ? `var(${boundVarId})` : colorToString(paint);
 
-        // Create a new paint without the bound variable
         if (paint.type === 'SOLID') {
+          const newFills = [...fills];
           newFills[index] = {
             type: 'SOLID',
             color: paint.color,
@@ -572,12 +928,7 @@ export async function unbindVariable(
             blendMode: paint.blendMode,
           };
           (sceneNode as GeometryMixin).fills = newFills;
-          return {
-            success: true,
-            beforeValue,
-            afterValue: colorToString(paint),
-            actionType: 'unbind',
-          };
+          return { success: true, beforeValue, afterValue: colorToString(paint), actionType: 'unbind' };
         }
       }
     }
@@ -585,16 +936,13 @@ export async function unbindVariable(
     if (strokeMatch && 'strokes' in sceneNode) {
       const index = parseInt(strokeMatch[1], 10);
       const strokes = (sceneNode as GeometryMixin).strokes;
-
       if (Array.isArray(strokes) && strokes[index]) {
-        const newStrokes = [...strokes];
-        const paint = newStrokes[index] as SolidPaint;
-
-        // Capture before value
+        const paint = strokes[index] as SolidPaint;
         const boundVarId = getBoundVariableFromPaint(paint);
         const beforeValue = boundVarId ? `var(${boundVarId})` : colorToString(paint);
 
         if (paint.type === 'SOLID') {
+          const newStrokes = [...strokes];
           newStrokes[index] = {
             type: 'SOLID',
             color: paint.color,
@@ -603,37 +951,24 @@ export async function unbindVariable(
             blendMode: paint.blendMode,
           };
           (sceneNode as GeometryMixin).strokes = newStrokes;
-          return {
-            success: true,
-            beforeValue,
-            afterValue: colorToString(paint),
-            actionType: 'unbind',
-          };
+          return { success: true, beforeValue, afterValue: colorToString(paint), actionType: 'unbind' };
         }
       }
     }
 
-    // Handle text node properties
     if (sceneNode.type === 'TEXT' && property === 'paragraphSpacing') {
       const textNode = sceneNode as TextNode;
       const beforeValue = getNumberPropertyValue(textNode, 'paragraphSpacing');
       const currentValue = String(textNode.paragraphSpacing);
       textNode.setBoundVariable('paragraphSpacing', null);
-      return {
-        success: true,
-        beforeValue,
-        afterValue: currentValue,
-        actionType: 'unbind',
-      };
+      return { success: true, beforeValue, afterValue: currentValue, actionType: 'unbind' };
     }
 
-    // Handle other bindable properties by setting them to null
     if ('setBoundVariable' in sceneNode) {
       const bindableNode = sceneNode as SceneNode & {
         setBoundVariable: (field: VariableBindableNodeField, variable: Variable | null) => void;
       };
 
-      // Map of property names to bindable fields
       const propertyToField: Record<string, VariableBindableNodeField> = {
         itemSpacing: 'itemSpacing',
         counterAxisSpacing: 'counterAxisSpacing',
@@ -650,12 +985,10 @@ export async function unbindVariable(
 
       const field = propertyToField[property];
       if (field) {
-        // Capture before value
         const beforeValue = getNumberPropertyValue(sceneNode, property);
         const nodeWithProps = sceneNode as unknown as Record<string, unknown>;
         const currentValue = String(nodeWithProps[property] ?? 'unknown');
 
-        // For corner radius, unbind all corners
         if (property === 'cornerRadius') {
           bindableNode.setBoundVariable('topLeftRadius', null);
           bindableNode.setBoundVariable('topRightRadius', null);
@@ -664,32 +997,24 @@ export async function unbindVariable(
         } else {
           bindableNode.setBoundVariable(field, null);
         }
-        return {
-          success: true,
-          beforeValue,
-          afterValue: currentValue,
-          actionType: 'unbind',
-        };
+        return { success: true, beforeValue, afterValue: currentValue, actionType: 'unbind' };
       }
     }
 
     return { success: false, message: 'Cannot unbind property: ' + property };
-  } catch (error) {
-    const msg = 'Unbind error: ' + (error instanceof Error ? error.message : 'Unknown error');
-    console.error('[Fixer]', msg, error);
+  } catch (e) {
+    const msg = 'Unbind error: ' + (e instanceof Error ? e.message : String(e));
+    console.error('[Fixer]', msg);
     return { success: false, message: msg };
   }
 }
 
-/**
- * Detach a style from a node (for unknown styles)
- * This removes the style binding but keeps the current visual appearance
- */
+/** Detach a style from a node (keeps current visual appearance) */
 export async function detachStyle(
   nodeId: string,
   property: string
 ): Promise<FixResult> {
-  console.log('[Fixer] detachStyle called:', { nodeId, property });
+  console.log('[Fixer] detachStyle:', { nodeId, property });
 
   try {
     const node = await figma.getNodeByIdAsync(nodeId);
@@ -704,15 +1029,8 @@ export async function detachStyle(
         if ('fillStyleId' in sceneNode) {
           const nodeWithStyle = sceneNode as GeometryMixin & { fillStyleId: string };
           const beforeValue = nodeWithStyle.fillStyleId || 'none';
-          // Setting fillStyleId to empty string detaches the style
           nodeWithStyle.fillStyleId = '';
-          return {
-            success: true,
-            message: 'Fill style detached',
-            beforeValue,
-            afterValue: 'detached',
-            actionType: 'detach',
-          };
+          return { success: true, message: 'Fill style detached', beforeValue, afterValue: 'detached', actionType: 'detach' };
         }
         break;
 
@@ -721,13 +1039,7 @@ export async function detachStyle(
           const nodeWithStyle = sceneNode as GeometryMixin & { strokeStyleId: string };
           const beforeValue = nodeWithStyle.strokeStyleId || 'none';
           nodeWithStyle.strokeStyleId = '';
-          return {
-            success: true,
-            message: 'Stroke style detached',
-            beforeValue,
-            afterValue: 'detached',
-            actionType: 'detach',
-          };
+          return { success: true, message: 'Stroke style detached', beforeValue, afterValue: 'detached', actionType: 'detach' };
         }
         break;
 
@@ -736,15 +1048,8 @@ export async function detachStyle(
           const textNode = sceneNode as TextNode;
           const rawStyleId = textNode.textStyleId;
           const beforeValue = typeof rawStyleId === 'symbol' ? 'mixed' : (rawStyleId || 'none');
-          // Setting textStyleId to empty string detaches the style (use async method)
           await textNode.setTextStyleIdAsync('');
-          return {
-            success: true,
-            message: 'Text style detached',
-            beforeValue,
-            afterValue: 'detached',
-            actionType: 'detach',
-          };
+          return { success: true, message: 'Text style detached', beforeValue, afterValue: 'detached', actionType: 'detach' };
         }
         break;
 
@@ -753,13 +1058,7 @@ export async function detachStyle(
           const nodeWithStyle = sceneNode as BlendMixin & { effectStyleId: string };
           const beforeValue = nodeWithStyle.effectStyleId || 'none';
           nodeWithStyle.effectStyleId = '';
-          return {
-            success: true,
-            message: 'Effect style detached',
-            beforeValue,
-            afterValue: 'detached',
-            actionType: 'detach',
-          };
+          return { success: true, message: 'Effect style detached', beforeValue, afterValue: 'detached', actionType: 'detach' };
         }
         break;
 
@@ -768,21 +1067,16 @@ export async function detachStyle(
     }
 
     return { success: false, message: 'Node does not support style: ' + property };
-  } catch (error) {
-    const msg = 'Detach style error: ' + (error instanceof Error ? error.message : 'Unknown error');
-    console.error('[Fixer]', msg, error);
+  } catch (e) {
+    const msg = 'Detach style error: ' + (e instanceof Error ? e.message : String(e));
+    console.error('[Fixer]', msg);
     return { success: false, message: msg };
   }
 }
 
-/**
- * Bulk detach styles from multiple nodes
- */
+/** Bulk detach styles from multiple nodes */
 export async function bulkDetachStyles(
-  detaches: Array<{
-    nodeId: string;
-    property: string;
-  }>
+  detaches: Array<{ nodeId: string; property: string }>
 ): Promise<{ successful: number; failed: number; errors: string[] }> {
   let successful = 0;
   let failed = 0;
@@ -790,31 +1084,24 @@ export async function bulkDetachStyles(
 
   for (const detach of detaches) {
     const result = await detachStyle(detach.nodeId, detach.property);
-
     if (result.success) {
       successful++;
     } else {
       failed++;
-      if (result.message) {
-        errors.push(detach.nodeId + ': ' + result.message);
-      }
+      if (result.message) errors.push(detach.nodeId + ': ' + result.message);
     }
-
-    // Yield to prevent blocking
     await new Promise(resolve => setTimeout(resolve, 0));
   }
 
   return { successful, failed, errors };
 }
 
-/**
- * Apply a text style to a text node
- */
+/** Apply a text style to a text node */
 export async function applyTextStyle(
   nodeId: string,
   textStyleId: string
 ): Promise<FixResult> {
-  console.log('[Fixer] applyTextStyle called:', { nodeId, textStyleId });
+  console.log('[Fixer] applyTextStyle:', { nodeId, textStyleId });
 
   try {
     const node = await figma.getNodeByIdAsync(nodeId);
@@ -823,29 +1110,20 @@ export async function applyTextStyle(
     }
 
     const textNode = node as TextNode;
-
-    // Get the text style
     const style = await figma.getStyleByIdAsync(textStyleId);
     if (!style || style.type !== 'TEXT') {
       return { success: false, message: 'Text style not found: ' + textStyleId };
     }
 
-    // Capture before value
     const rawStyleId = textNode.textStyleId;
     const beforeValue = typeof rawStyleId === 'symbol' ? 'mixed styles' : (rawStyleId || 'no style');
 
-    // Apply the text style using async method (required for dynamic-page access)
     await textNode.setTextStyleIdAsync(textStyleId);
 
-    return {
-      success: true,
-      beforeValue,
-      afterValue: style.name,
-      actionType: 'apply-style',
-    };
-  } catch (error) {
-    const msg = 'Apply text style error: ' + (error instanceof Error ? error.message : 'Unknown error');
-    console.error('[Fixer]', msg, error);
+    return { success: true, beforeValue, afterValue: style.name, actionType: 'apply-style' };
+  } catch (e) {
+    const msg = 'Apply text style error: ' + (e instanceof Error ? e.message : String(e));
+    console.error('[Fixer]', msg);
     return { success: false, message: msg };
   }
 }

@@ -32,6 +32,7 @@ const RULE_NAMES: Record<LintRuleId, string> = {
   'no-hardcoded-radii': 'Hardcoded Radii',
   'no-orphaned-variables': 'Orphaned Variables',
   'no-unknown-styles': 'Unknown Styles',
+  'prefer-semantic-variables': 'Core Variables',
 };
 
 interface GroupedViolations {
