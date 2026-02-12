@@ -62,6 +62,8 @@ interface VariableIndex {
   byResolvedNumber: Map<number, Variable[]>;
   /** variableId → hex (with alpha, for quick value verification after name match) */
   resolvedColorById: Map<string, string>;
+  /** variableId → number (for quick value verification after name match) */
+  resolvedNumberById: Map<string, number>;
 }
 
 let _cachedIndex: VariableIndex | null = null;
@@ -198,6 +200,7 @@ async function buildVariableIndex(): Promise<VariableIndex> {
   const byResolvedColor = new Map<string, Variable[]>();
   const byResolvedNumber = new Map<number, Variable[]>();
   const resolvedColorById = new Map<string, string>();
+  const resolvedNumberById = new Map<string, number>();
 
   for (const v of variables) {
     if (Object.keys(v.valuesByMode).length === 0) continue;
@@ -226,6 +229,8 @@ async function buildVariableIndex(): Promise<VariableIndex> {
     } else if (v.resolvedType === 'FLOAT') {
       const num = resolveToNumber(v, defaultModes, variableById);
       if (num !== null) {
+        resolvedNumberById.set(v.id, num);
+
         const list = byResolvedNumber.get(num) || [];
         if (isSemantic) {
           list.unshift(v);
@@ -242,7 +247,7 @@ async function buildVariableIndex(): Promise<VariableIndex> {
 
   return {
     byFullPath, byName, collectionNames, defaultModes,
-    byResolvedColor, byResolvedNumber, resolvedColorById,
+    byResolvedColor, byResolvedNumber, resolvedColorById, resolvedNumberById,
   };
 }
 
@@ -255,6 +260,151 @@ async function getVariableIndex(): Promise<VariableIndex> {
   _cachedIndex = await buildVariableIndex();
   _indexTimestamp = now;
   return _cachedIndex;
+}
+
+// ─── Library Variable Support ────────────────────────────────────────────
+
+interface LibraryVarEntry {
+  key: string;
+  name: string;
+  resolvedType: VariableResolvedDataType;
+  collectionName: string;
+}
+
+let _libraryVarCache: Map<string, LibraryVarEntry[]> | null = null;
+let _libraryCacheTimestamp = 0;
+const LIBRARY_CACHE_TTL_MS = 30000; // 30s cache
+
+/**
+ * Build a map of library variables indexed by normalized name.
+ * Cached for 30 seconds to avoid repeated API calls during bulk fixes.
+ */
+async function getLibraryVariableMap(): Promise<Map<string, LibraryVarEntry[]>> {
+  const now = Date.now();
+  if (_libraryVarCache && (now - _libraryCacheTimestamp) < LIBRARY_CACHE_TTL_MS) {
+    return _libraryVarCache;
+  }
+
+  const map = new Map<string, LibraryVarEntry[]>();
+
+  try {
+    if (!figma.teamLibrary || !figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync) {
+      console.log('[Fixer] Team library API not available');
+      _libraryVarCache = map;
+      _libraryCacheTimestamp = now;
+      return map;
+    }
+
+    const collections = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+    for (const collection of collections) {
+      const variables = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key);
+      for (const v of variables) {
+        const normalized = normalizePath(v.name);
+        const list = map.get(normalized) || [];
+        list.push({
+          key: v.key,
+          name: v.name,
+          resolvedType: v.resolvedType,
+          collectionName: collection.name,
+        });
+        map.set(normalized, list);
+      }
+    }
+    console.log('[Fixer] Library variable map: ' + map.size + ' unique names from ' + collections.length + ' collections');
+  } catch (e) {
+    console.warn('[Fixer] Could not fetch library variables:', e);
+  }
+
+  _libraryVarCache = map;
+  _libraryCacheTimestamp = now;
+  return map;
+}
+
+/**
+ * Phase 3: Search team library variables by name and import if found.
+ * Handles the common case where variables are published in a shared library
+ * but haven't been explicitly imported into the current file yet.
+ *
+ * Tries multiple name strategies:
+ * 1. Exact name match on primary token path
+ * 2. Suffix match on primary token path
+ * 3. Alias chain paths (the token may reference core tokens under different names)
+ */
+async function findAndImportLibraryVariable(
+  tokenPath: string,
+  expectedType: VariableResolvedDataType | undefined,
+  tokens?: TokenCollection | null
+): Promise<Variable | null> {
+  const libraryVars = await getLibraryVariableMap();
+  if (libraryVars.size === 0) return null;
+
+  // Try the primary token path first, then alias chain paths
+  const pathsToTry = [tokenPath];
+  if (tokens) {
+    // Walk the alias chain to collect all alternative paths
+    let currentPath = tokenPath;
+    const visited = new Set<string>();
+    while (!visited.has(currentPath)) {
+      visited.add(currentPath);
+      const token = tokens.tokens.get(currentPath);
+      if (token && token.isAlias && token.aliasPath) {
+        pathsToTry.push(token.aliasPath);
+        currentPath = token.aliasPath;
+      } else {
+        break;
+      }
+    }
+  }
+
+  for (const path of pathsToTry) {
+    const normalized = normalizePath(path);
+
+    // Strategy 1: Exact name match
+    const exact = libraryVars.get(normalized);
+    if (exact) {
+      for (const c of exact) {
+        if (!expectedType || c.resolvedType === expectedType) {
+          try {
+            const imported = await figma.variables.importVariableByKeyAsync(c.key);
+            console.log('[Fixer] Imported library variable: ' + c.name + ' from ' + c.collectionName);
+            _cachedIndex = null; // invalidate local cache since we imported
+            return imported;
+          } catch (e) {
+            console.warn('[Fixer] Failed to import ' + c.name + ':', e);
+          }
+        }
+      }
+    }
+
+    // Strategy 2: Suffix match (variable name = trailing portion of token path)
+    let bestMatch: LibraryVarEntry | null = null;
+    let bestLen = 0;
+    for (const [varName, vars] of libraryVars) {
+      const segCount = varName.split('/').length;
+      if (segCount >= 2 && segCount > bestLen && pathEndsWith(normalized, varName)) {
+        for (const c of vars) {
+          if (!expectedType || c.resolvedType === expectedType) {
+            bestMatch = c;
+            bestLen = segCount;
+            break;
+          }
+        }
+      }
+    }
+
+    if (bestMatch) {
+      try {
+        const imported = await figma.variables.importVariableByKeyAsync(bestMatch.key);
+        console.log('[Fixer] Imported library variable (suffix): ' + bestMatch.name + ' from ' + bestMatch.collectionName);
+        _cachedIndex = null;
+        return imported;
+      } catch (e) {
+        console.warn('[Fixer] Failed to import ' + bestMatch.name + ':', e);
+      }
+    }
+  } // end for pathsToTry
+
+  return null;
 }
 
 // ─── Context Helpers ─────────────────────────────────────────────────────
@@ -339,14 +489,14 @@ function typeMatches(v: Variable, expected?: VariableResolvedDataType): boolean 
  *
  * This guarantees zero visual change.
  */
-function findVariableForToken(
+async function findVariableForToken(
   tokenPath: string,
   index: VariableIndex,
   expectedType: VariableResolvedDataType | undefined,
   tokens: TokenCollection | null | undefined,
   context: { property: string; nodeType: string } | undefined,
   currentValue: CurrentValue
-): Variable | null {
+): Promise<Variable | null> {
   const cvDesc = currentValue
     ? (currentValue.type === 'color' ? currentValue.hex : String(currentValue.value))
     : 'unknown';
@@ -362,12 +512,30 @@ function findVariableForToken(
   {
     const match = tryNameBasedMatch(tokenPath, index, expectedType, context);
     if (match) {
-      // Verify the variable resolves to the same value as the node's current color
+      // Verify the variable resolves to the same value as the node's current value
       if (currentValue && currentValue.type === 'color') {
         const varHex = index.resolvedColorById.get(match.id);
         if (varHex && varHex !== currentValue.hex) {
-          console.log('[Fixer] Name match "' + match.name + '" rejected: ' +
+          console.log('[Fixer] Name match "' + match.name + '" rejected: color ' +
             varHex + ' != ' + currentValue.hex);
+          // Fall through to Phase 2
+        } else {
+          console.log('[Fixer] Name match: ' + match.name);
+          return match;
+        }
+      } else if (currentValue && currentValue.type === 'number') {
+        const varNum = index.resolvedNumberById.get(match.id);
+        if (varNum !== undefined && varNum !== currentValue.value) {
+          // Allow "close" matches (same tolerance as lint rules: diff ≤ 1 or pctDiff ≤ 5%)
+          // The user accepted this trade-off by clicking Fix on a close-match suggestion
+          const diff = Math.abs(varNum - currentValue.value);
+          const pctDiff = currentValue.value !== 0 ? diff / Math.abs(currentValue.value) : diff;
+          if (diff <= 1 || pctDiff <= 0.05) {
+            console.log('[Fixer] Name match (close, diff=' + diff.toFixed(2) + '): ' + match.name);
+            return match;
+          }
+          console.log('[Fixer] Name match "' + match.name + '" rejected: number ' +
+            varNum + ' != ' + currentValue.value + ' (diff=' + diff.toFixed(2) + ')');
           // Fall through to Phase 2
         } else {
           console.log('[Fixer] Name match: ' + match.name);
@@ -424,9 +592,48 @@ function findVariableForToken(
         return best;
       }
     }
+
+    // Phase 2b: Close number value match (diff ≤ 1)
+    // When no exact value match exists, find variables with close values.
+    // Scores by token path similarity to prefer the suggested token's variable.
+    let bestCloseVar: Variable | null = null;
+    let bestCloseDiff = Infinity;
+    let bestCloseScore = -Infinity;
+    for (const [numVal, vars] of index.byResolvedNumber) {
+      const diff = Math.abs(numVal - currentValue.value);
+      if (diff > 0 && diff <= 1) {
+        const typed = vars.filter(v => typeMatches(v, expectedType) && excludeComponent(v));
+        if (typed.length > 0) {
+          const best = pickBestVariable(typed, index, keywords, tokenPath, tokens);
+          // Score: prefer closer values, then higher context/name score
+          const nameScore = normalizePath(best.name) === normalizePath(tokenPath) ? 20 :
+            pathEndsWith(normalizePath(tokenPath), normalizePath(best.name)) ? 15 : 0;
+          const score = nameScore + contextScore(normalizePath(best.name), keywords) - diff;
+          if (score > bestCloseScore || (score === bestCloseScore && diff < bestCloseDiff)) {
+            bestCloseVar = best;
+            bestCloseDiff = diff;
+            bestCloseScore = score;
+          }
+        }
+      }
+    }
+    if (bestCloseVar) {
+      console.log('[Fixer] Close number match (diff=' + bestCloseDiff.toFixed(2) + '): ' + bestCloseVar.name);
+      return bestCloseVar;
+    }
   }
 
-  console.log('[Fixer] No variable found for: ' + tokenPath);
+  // ── Phase 3: Library variable search by name ──
+  // When no local variable matches, search team library collections
+  // and import a matching variable on demand.
+  console.log('[Fixer] Trying library variables for: ' + tokenPath);
+  const libraryVar = await findAndImportLibraryVariable(tokenPath, expectedType, tokens);
+  if (libraryVar) {
+    return libraryVar;
+  }
+
+  console.log('[Fixer] No variable found (local: ' + index.byResolvedNumber.size +
+    ' number vars, ' + index.byResolvedColor.size + ' color vars): ' + tokenPath);
   return null;
 }
 
@@ -582,9 +789,12 @@ function pickBestVariable(
 function getExpectedVariableType(ruleId: LintRuleId): VariableResolvedDataType | undefined {
   switch (ruleId) {
     case 'no-hardcoded-colors':
+    case 'no-unknown-styles':
       return 'COLOR';
     case 'no-hardcoded-spacing':
     case 'no-hardcoded-radii':
+    case 'no-hardcoded-stroke-weight':
+    case 'no-hardcoded-sizing':
     case 'no-hardcoded-typography':
       return 'FLOAT';
     default:
@@ -691,6 +901,17 @@ async function applyNumberBinding(
     topRightRadius: 'topRightRadius',
     bottomLeftRadius: 'bottomLeftRadius',
     bottomRightRadius: 'bottomRightRadius',
+    strokeWeight: 'strokeWeight',
+    strokeTopWeight: 'strokeTopWeight',
+    strokeRightWeight: 'strokeRightWeight',
+    strokeBottomWeight: 'strokeBottomWeight',
+    strokeLeftWeight: 'strokeLeftWeight',
+    width: 'width',
+    height: 'height',
+    minWidth: 'minWidth',
+    maxWidth: 'maxWidth',
+    minHeight: 'minHeight',
+    maxHeight: 'maxHeight',
   };
 
   const field = fieldMap[property];
@@ -745,6 +966,58 @@ async function applyTypographyBinding(
   };
 }
 
+// ─── Detach + Rebind (Unknown Styles) ────────────────────────────────────
+
+/**
+ * Detach an unknown fill/stroke style, then immediately bind the underlying
+ * paint to the matching token variable. Single-action fix for unknown styles.
+ */
+async function detachAndRebind(
+  node: SceneNode,
+  styleProperty: string,
+  tokenPath: string,
+  index: VariableIndex,
+  tokens: TokenCollection | null | undefined
+): Promise<FixResult> {
+  const paintProperty = styleProperty === 'fillStyle' ? 'fills[0]' : 'strokes[0]';
+
+  // Step 1: Detach the style
+  if (styleProperty === 'fillStyle' && 'fillStyleId' in node) {
+    (node as GeometryMixin & { fillStyleId: string }).fillStyleId = '';
+  } else if (styleProperty === 'strokeStyle' && 'strokeStyleId' in node) {
+    (node as GeometryMixin & { strokeStyleId: string }).strokeStyleId = '';
+  } else {
+    return { success: false, message: 'Node does not support style: ' + styleProperty };
+  }
+
+  // Step 2: Read the now-hardcoded color (including paint opacity)
+  const currentValue = readCurrentValue(node, paintProperty);
+  if (!currentValue || currentValue.type !== 'color') {
+    return { success: true, message: 'Style detached (no solid paint to rebind)', actionType: 'detach' };
+  }
+
+  // Step 3: Find matching variable
+  const variable = await findVariableForToken(
+    tokenPath, index, 'COLOR', tokens,
+    { property: paintProperty, nodeType: node.type },
+    currentValue
+  );
+
+  if (!variable) {
+    return { success: true, message: 'Style detached (no matching variable found for rebind)', actionType: 'detach' };
+  }
+
+  // Step 4: Bind the variable
+  console.log('[Fixer] Detach+rebind: binding "' + variable.name + '" -> ' + paintProperty + ' on "' + node.name + '"');
+  const bindResult = await applyColorBinding(node, paintProperty, variable);
+  if (bindResult.success) {
+    return { success: true, beforeValue: 'style', afterValue: variable.name, actionType: 'rebind' };
+  }
+
+  // Binding failed but detach succeeded
+  return { success: true, message: 'Style detached but rebind failed: ' + bindResult.message, actionType: 'detach' };
+}
+
 // ─── Public Fix API ──────────────────────────────────────────────────────
 
 /** Apply a fix to a single violation */
@@ -766,12 +1039,21 @@ export async function applyFix(
 
     const sceneNode = node as SceneNode;
     const index = await getVariableIndex();
+
+    // Special handling for no-unknown-styles: detach + rebind for fill/stroke, detach only for text/effect
+    if (ruleId === 'no-unknown-styles') {
+      if (property === 'fillStyle' || property === 'strokeStyle') {
+        return detachAndRebind(sceneNode, property, tokenPath, index, tokens);
+      }
+      return detachStyle(nodeId, property);
+    }
+
     const expectedType = getExpectedVariableType(ruleId);
 
     // Read the node's CURRENT visual value — this is what we must preserve
     const currentValue = readCurrentValue(sceneNode, property);
 
-    const variable = findVariableForToken(
+    const variable = await findVariableForToken(
       tokenPath, index, expectedType, tokens,
       { property, nodeType: sceneNode.type },
       currentValue
@@ -781,10 +1063,12 @@ export async function applyFix(
       return {
         success: false,
         message: 'No Figma variable found for token: ' + tokenPath
-          + (currentValue && currentValue.type === 'color'
+          + (currentValue && currentValue.type === 'number'
+            ? ' (value: ' + currentValue.value + ')'
+            : currentValue && currentValue.type === 'color'
             ? ' (color: ' + currentValue.hex + ')'
             : '')
-          + '. Sync variables from Tokens Studio if needed.',
+          + '. Ensure variables are synced via Tokens Studio or available in a team library.',
       };
     }
 
@@ -796,6 +1080,8 @@ export async function applyFix(
 
       case 'no-hardcoded-spacing':
       case 'no-hardcoded-radii':
+      case 'no-hardcoded-stroke-weight':
+      case 'no-hardcoded-sizing':
         return applyNumberBinding(sceneNode, property, variable);
 
       case 'no-hardcoded-typography':
@@ -981,6 +1267,17 @@ export async function unbindVariable(
         bottomLeftRadius: 'bottomLeftRadius',
         bottomRightRadius: 'bottomRightRadius',
         cornerRadius: 'topLeftRadius',
+        strokeWeight: 'strokeWeight',
+        strokeTopWeight: 'strokeTopWeight',
+        strokeRightWeight: 'strokeRightWeight',
+        strokeBottomWeight: 'strokeBottomWeight',
+        strokeLeftWeight: 'strokeLeftWeight',
+        width: 'width',
+        height: 'height',
+        minWidth: 'minWidth',
+        maxWidth: 'maxWidth',
+        minHeight: 'minHeight',
+        maxHeight: 'maxHeight',
       };
 
       const field = propertyToField[property];

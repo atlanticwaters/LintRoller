@@ -58,6 +58,9 @@ export class NoUnknownStylesRule extends LintRule {
         violation.canDetach = true;
         violation.suggestionConfidence = suggestion?.confidence;
         violation.alternativeTokens = suggestion?.alternatives;
+        if (suggestion?.confidence === 'approximate') {
+          violation.canIgnore = true;
+        }
         violations.push(violation);
       }
     }
@@ -77,6 +80,9 @@ export class NoUnknownStylesRule extends LintRule {
         violation.canDetach = true;
         violation.suggestionConfidence = suggestion?.confidence;
         violation.alternativeTokens = suggestion?.alternatives;
+        if (suggestion?.confidence === 'approximate') {
+          violation.canIgnore = true;
+        }
         violations.push(violation);
       }
     }

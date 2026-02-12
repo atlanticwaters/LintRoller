@@ -232,6 +232,14 @@ export class TokenParser {
       resolvedValue = normalizeColor(value);
     }
 
+    // Convert string number values to actual numbers
+    if ((raw.$type === 'number' || raw.$type === 'dimension') && typeof value === 'string') {
+      const parsed = parseFloat(value);
+      if (!isNaN(parsed)) {
+        resolvedValue = parsed;
+      }
+    }
+
     const resolved: ResolvedToken = {
       path,
       rawValue: value,

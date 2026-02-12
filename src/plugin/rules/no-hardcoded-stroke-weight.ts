@@ -1,46 +1,57 @@
 /**
- * No Hardcoded Radii Rule
+ * No Hardcoded Stroke Weight Rule
  *
- * Flags nodes with hardcoded corner radius values.
+ * Flags nodes with hardcoded stroke weight (border width) values.
  */
 
 import type { LintViolation, PropertyInspection, MatchConfidence, TokenSuggestion } from '../../shared/types';
-import { findClosestNumbers, getNumberMatchDescription, RADIUS_KEYWORDS } from '../../shared/number-matching';
+import { findClosestNumbers, getNumberMatchDescription, STROKE_WIDTH_KEYWORDS } from '../../shared/number-matching';
 import { LintRule } from './base';
 
 /**
- * Radius properties to check
+ * Stroke weight properties to check
  */
-const RADIUS_PROPERTIES = [
-  'cornerRadius',
-  'topLeftRadius',
-  'topRightRadius',
-  'bottomLeftRadius',
-  'bottomRightRadius',
+const STROKE_WEIGHT_PROPERTIES = [
+  'strokeWeight',
+  'strokeTopWeight',
+  'strokeRightWeight',
+  'strokeBottomWeight',
+  'strokeLeftWeight',
 ];
 
 /** Maximum number of alternative suggestions to include */
 const MAX_ALTERNATIVES = 3;
 
 /**
- * Rule to detect hardcoded corner radius values
+ * Rule to detect hardcoded stroke weight values
  */
-export class NoHardcodedRadiiRule extends LintRule {
-  readonly id = 'no-hardcoded-radii' as const;
-  readonly name = 'No Hardcoded Radii';
-  readonly description = 'Flags nodes with hardcoded corner radius values';
+export class NoHardcodedStrokeWeightRule extends LintRule {
+  readonly id = 'no-hardcoded-stroke-weight' as const;
+  readonly name = 'No Hardcoded Stroke Weight';
+  readonly description = 'Flags nodes with hardcoded border width values';
 
   check(node: SceneNode, inspections: PropertyInspection[]): LintViolation[] {
-    // Only check nodes that can have corner radius
-    if (!('cornerRadius' in node)) {
+    // Skip COMPONENT_SET — its dashed border is Figma-managed, not user-configurable
+    if (node.type === 'COMPONENT_SET') {
+      return [];
+    }
+
+    // Only check nodes that have strokes
+    if (!('strokes' in node) || !Array.isArray(node.strokes)) {
+      return [];
+    }
+
+    // Only check if at least one stroke is visible
+    const hasVisibleStroke = node.strokes.some((s: Paint) => s.visible !== false);
+    if (!hasVisibleStroke) {
       return [];
     }
 
     const violations: LintViolation[] = [];
 
     for (const inspection of inspections) {
-      // Only check radius properties
-      if (!RADIUS_PROPERTIES.includes(inspection.property)) {
+      // Only check stroke weight properties
+      if (!STROKE_WEIGHT_PROPERTIES.includes(inspection.property)) {
         continue;
       }
 
@@ -49,7 +60,7 @@ export class NoHardcodedRadiiRule extends LintRule {
         continue;
       }
 
-      // Skip if no value or zero (square corners are often intentional)
+      // Skip if no value or zero
       if (!inspection.rawValue || inspection.rawValue === 0) {
         continue;
       }
@@ -60,7 +71,7 @@ export class NoHardcodedRadiiRule extends LintRule {
       const matches = findClosestNumbers(
         value,
         this.tokens.numberValues,
-        RADIUS_KEYWORDS,
+        STROKE_WIDTH_KEYWORDS,
         MAX_ALTERNATIVES + 1
       );
 
@@ -129,16 +140,16 @@ export class NoHardcodedRadiiRule extends LintRule {
    */
   private formatPropertyName(property: string): string {
     switch (property) {
-      case 'cornerRadius':
-        return 'corner radius';
-      case 'topLeftRadius':
-        return 'top-left radius';
-      case 'topRightRadius':
-        return 'top-right radius';
-      case 'bottomLeftRadius':
-        return 'bottom-left radius';
-      case 'bottomRightRadius':
-        return 'bottom-right radius';
+      case 'strokeWeight':
+        return 'stroke weight';
+      case 'strokeTopWeight':
+        return 'top stroke weight';
+      case 'strokeRightWeight':
+        return 'right stroke weight';
+      case 'strokeBottomWeight':
+        return 'bottom stroke weight';
+      case 'strokeLeftWeight':
+        return 'left stroke weight';
       default:
         return property;
     }

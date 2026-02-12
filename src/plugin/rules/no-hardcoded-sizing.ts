@@ -1,46 +1,46 @@
 /**
- * No Hardcoded Radii Rule
+ * No Hardcoded Sizing Rule
  *
- * Flags nodes with hardcoded corner radius values.
+ * Flags nodes with hardcoded width/height values that should use design tokens.
  */
 
 import type { LintViolation, PropertyInspection, MatchConfidence, TokenSuggestion } from '../../shared/types';
-import { findClosestNumbers, getNumberMatchDescription, RADIUS_KEYWORDS } from '../../shared/number-matching';
+import { findClosestNumbers, getNumberMatchDescription, SIZING_KEYWORDS } from '../../shared/number-matching';
 import { LintRule } from './base';
 
 /**
- * Radius properties to check
+ * Sizing properties to check
  */
-const RADIUS_PROPERTIES = [
-  'cornerRadius',
-  'topLeftRadius',
-  'topRightRadius',
-  'bottomLeftRadius',
-  'bottomRightRadius',
+const SIZING_PROPERTIES = [
+  'width',
+  'height',
+  'minWidth',
+  'minHeight',
+  'maxWidth',
+  'maxHeight',
 ];
 
 /** Maximum number of alternative suggestions to include */
 const MAX_ALTERNATIVES = 3;
 
 /**
- * Rule to detect hardcoded corner radius values
+ * Rule to detect hardcoded sizing values
  */
-export class NoHardcodedRadiiRule extends LintRule {
-  readonly id = 'no-hardcoded-radii' as const;
-  readonly name = 'No Hardcoded Radii';
-  readonly description = 'Flags nodes with hardcoded corner radius values';
+export class NoHardcodedSizingRule extends LintRule {
+  readonly id = 'no-hardcoded-sizing' as const;
+  readonly name = 'No Hardcoded Sizing';
+  readonly description = 'Flags nodes with hardcoded width/height values';
 
   check(node: SceneNode, inspections: PropertyInspection[]): LintViolation[] {
-    // Only check nodes that can have corner radius
-    if (!('cornerRadius' in node)) {
+    if (!('width' in node) || !('height' in node)) {
       return [];
     }
 
     const violations: LintViolation[] = [];
 
     for (const inspection of inspections) {
-      // Only check radius properties
-      if (!RADIUS_PROPERTIES.includes(inspection.property)) {
+      // Only check sizing properties
+      if (!SIZING_PROPERTIES.includes(inspection.property)) {
         continue;
       }
 
@@ -49,9 +49,23 @@ export class NoHardcodedRadiiRule extends LintRule {
         continue;
       }
 
-      // Skip if no value or zero (square corners are often intentional)
+      // Skip if no value or zero
       if (!inspection.rawValue || inspection.rawValue === 0) {
         continue;
+      }
+
+      // For width/height, skip nodes using HUG or FILL sizing
+      if (inspection.property === 'width' && 'layoutSizingHorizontal' in node) {
+        const sizing = (node as FrameNode).layoutSizingHorizontal;
+        if (sizing === 'HUG' || sizing === 'FILL') {
+          continue;
+        }
+      }
+      if (inspection.property === 'height' && 'layoutSizingVertical' in node) {
+        const sizing = (node as FrameNode).layoutSizingVertical;
+        if (sizing === 'HUG' || sizing === 'FILL') {
+          continue;
+        }
       }
 
       const value = inspection.rawValue as number;
@@ -60,7 +74,7 @@ export class NoHardcodedRadiiRule extends LintRule {
       const matches = findClosestNumbers(
         value,
         this.tokens.numberValues,
-        RADIUS_KEYWORDS,
+        SIZING_KEYWORDS,
         MAX_ALTERNATIVES + 1
       );
 
@@ -129,16 +143,18 @@ export class NoHardcodedRadiiRule extends LintRule {
    */
   private formatPropertyName(property: string): string {
     switch (property) {
-      case 'cornerRadius':
-        return 'corner radius';
-      case 'topLeftRadius':
-        return 'top-left radius';
-      case 'topRightRadius':
-        return 'top-right radius';
-      case 'bottomLeftRadius':
-        return 'bottom-left radius';
-      case 'bottomRightRadius':
-        return 'bottom-right radius';
+      case 'width':
+        return 'width';
+      case 'height':
+        return 'height';
+      case 'minWidth':
+        return 'min width';
+      case 'minHeight':
+        return 'min height';
+      case 'maxWidth':
+        return 'max width';
+      case 'maxHeight':
+        return 'max height';
       default:
         return property;
     }

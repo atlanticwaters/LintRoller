@@ -376,14 +376,67 @@ export class PropertyInspector {
   }
 
   /**
+   * Inspect stroke weight (border width) properties
+   */
+  inspectStrokeWeight(node: SceneNode): PropertyInspection[] {
+    const results: PropertyInspection[] = [];
+
+    // Skip COMPONENT_SET — its dashed border is Figma-managed
+    if (node.type === 'COMPONENT_SET') {
+      return results;
+    }
+
+    if (!('strokes' in node) || !Array.isArray(node.strokes)) {
+      return results;
+    }
+
+    // Only inspect if at least one stroke is visible
+    const hasVisibleStroke = node.strokes.some((s: Paint) => s.visible !== false);
+    if (!hasVisibleStroke) {
+      return results;
+    }
+
+    const boundVars = (node.boundVariables as Record<string, { id: string } | undefined>) || {};
+
+    // Uniform stroke weight
+    if ('strokeWeight' in node && typeof node.strokeWeight === 'number' && node.strokeWeight > 0) {
+      results.push({
+        property: 'strokeWeight',
+        isBound: !!boundVars.strokeWeight?.id,
+        boundVariableId: boundVars.strokeWeight?.id,
+        rawValue: node.strokeWeight,
+      });
+    }
+
+    // Per-side stroke weights
+    const perSideProps = ['strokeTopWeight', 'strokeRightWeight', 'strokeBottomWeight', 'strokeLeftWeight'] as const;
+    for (const prop of perSideProps) {
+      if (prop in node) {
+        const value = (node as unknown as Record<string, unknown>)[prop];
+        if (typeof value === 'number' && value > 0) {
+          results.push({
+            property: prop,
+            isBound: !!boundVars[prop]?.id,
+            boundVariableId: boundVars[prop]?.id,
+            rawValue: value,
+          });
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /**
    * Get all inspections for a node based on its type
    */
   inspectNode(node: SceneNode): PropertyInspection[] {
     const inspections: PropertyInspection[] = [];
 
-    // Always inspect paints (fills/strokes) and radius
+    // Always inspect paints (fills/strokes), radius, and stroke weight
     inspections.push(...this.inspectPaints(node));
     inspections.push(...this.inspectRadius(node));
+    inspections.push(...this.inspectStrokeWeight(node));
 
     // Typography for text nodes
     if (node.type === 'TEXT') {
@@ -394,6 +447,9 @@ export class PropertyInspector {
     if (node.type === 'FRAME' || node.type === 'COMPONENT' || node.type === 'INSTANCE') {
       inspections.push(...this.inspectSpacing(node));
     }
+
+    // Sizing (width, height, min/max)
+    inspections.push(...this.inspectSize(node));
 
     // Effects
     inspections.push(...this.inspectEffects(node));

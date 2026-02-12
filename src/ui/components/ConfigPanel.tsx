@@ -32,6 +32,16 @@ const RULES: Array<{ id: LintRuleId; name: string; description: string }> = [
     description: 'Flags nodes with hardcoded corner radius',
   },
   {
+    id: 'no-hardcoded-stroke-weight',
+    name: 'No Hardcoded Stroke Weight',
+    description: 'Flags nodes with hardcoded border width',
+  },
+  {
+    id: 'no-hardcoded-sizing',
+    name: 'No Hardcoded Sizing',
+    description: 'Flags nodes with hardcoded width/height values',
+  },
+  {
     id: 'no-orphaned-variables',
     name: 'No Orphaned Variables',
     description: 'Flags bindings to non-existent tokens',

@@ -47,14 +47,14 @@ function pickContextualToken(tokenPaths: string[], keywords: string[]): string {
   return tokenPaths[0];
 }
 
-/** Maximum Delta E for color suggestions (expanded to always show closest options) */
-const MAX_COLOR_DELTA_E = 50;
+/** Maximum Delta E for color suggestions (Delta E > 10 = clearly different colors) */
+const MAX_COLOR_DELTA_E = 10;
 
 /** Maximum number of alternative suggestions */
 const MAX_ALTERNATIVES = 3;
 
-/** Maximum tolerance for number matching (percentage) - expanded for better suggestions */
-const NUMBER_TOLERANCE_PERCENT = 1.0; // 100%
+/** Maximum tolerance for number matching (percentage) */
+const NUMBER_TOLERANCE_PERCENT = 0.5; // 50%
 
 /**
  * Rule to detect bindings to non-existent tokens
@@ -96,11 +96,12 @@ export class NoOrphanedVariablesRule extends LintRule {
       const variableInfo = this.figmaVariables.get(inspection.boundVariableId);
 
       if (!variableInfo) {
-        // Variable doesn't exist in document (deleted?)
-        // Try to find a replacement based on the node's current visual value
-        const suggestion = await this.findReplacementFromCurrentValue(
+        // Variable doesn't exist in local collection (deleted or from library)
+        // Try to resolve via Figma API first, then fall back to node's visual value
+        const suggestion = await this.findReplacementForMissingVariable(
           node,
           inspection.property,
+          inspection.boundVariableId,
           inspection.rawValue
         );
 
@@ -119,6 +120,9 @@ export class NoOrphanedVariablesRule extends LintRule {
         violation.canUnbind = true;
         violation.suggestionConfidence = suggestion.confidence;
         violation.alternativeTokens = suggestion.alternatives;
+        if (suggestion.confidence === 'approximate') {
+          violation.canIgnore = true;
+        }
         violations.push(violation);
       } else if (this.matchedVariableIds.size > 0 && !this.matchedVariableIds.has(inspection.boundVariableId)) {
         // Variable exists but no matching token found (using normalized path comparison)
@@ -189,6 +193,9 @@ export class NoOrphanedVariablesRule extends LintRule {
         violation.canUnbind = true;
         violation.suggestionConfidence = suggestion.confidence;
         violation.alternativeTokens = suggestion.alternatives;
+        if (suggestion.confidence === 'approximate') {
+          violation.canIgnore = true;
+        }
         violations.push(violation);
       }
     }
@@ -216,53 +223,140 @@ export class NoOrphanedVariablesRule extends LintRule {
   }
 
   /**
-   * Find a replacement token based on the node's current visual value
-   * Used when the bound variable ID no longer exists in the document
+   * Find a replacement token for a missing variable.
+   *
+   * Two-step approach:
+   * 1. Try resolving the variable via Figma API (handles library variables
+   *    that aren't in the local collection)
+   * 2. Fall back to reading the node's actual visual value (including paint
+   *    opacity, which rawValue from the inspector lacks)
    */
-  private async findReplacementFromCurrentValue(
+  private async findReplacementForMissingVariable(
     node: SceneNode,
     property: string,
+    boundVariableId: string,
     rawValue: unknown
   ): Promise<{
     suggestedToken?: string;
     confidence?: MatchConfidence;
     alternatives?: TokenSuggestion[];
   }> {
+    // ── Step 1: Try to resolve the variable directly via Figma API ──
+    // The variable might exist in a library or team collection even though
+    // it's not in our local variables map.
     try {
-      // Handle color properties (fills, strokes)
+      const variable = await figma.variables.getVariableByIdAsync(boundVariableId);
+      if (variable) {
+        const collection = await figma.variables.getVariableCollectionByIdAsync(
+          variable.variableCollectionId
+        );
+        if (collection && collection.modes.length > 0) {
+          const defaultModeId = collection.defaultModeId;
+          let value: VariableValue | undefined = variable.valuesByMode[defaultModeId];
+
+          if (variable.resolvedType === 'COLOR') {
+            if (value && typeof value === 'object' && 'type' in value &&
+                (value as { type: string }).type === 'VARIABLE_ALIAS') {
+              const resolved = await this.resolveVariableAlias(value as { type: string; id: string });
+              if (resolved) value = resolved;
+            }
+            if (value && typeof value === 'object' && value !== null && 'r' in value) {
+              console.log('[OrphanedVariables] Resolved missing variable via API: ' + variable.name);
+              return this.findColorReplacement(value, property, node.type);
+            }
+          } else if (variable.resolvedType === 'FLOAT') {
+            if (value && typeof value === 'object' && 'type' in value &&
+                (value as { type: string }).type === 'VARIABLE_ALIAS') {
+              const resolved = await this.resolveVariableAlias(value as { type: string; id: string });
+              if (typeof resolved === 'number') value = resolved;
+            }
+            if (typeof value === 'number') {
+              console.log('[OrphanedVariables] Resolved missing variable via API: ' + variable.name);
+              return this.findNumberReplacement(value, property);
+            }
+          }
+        }
+      }
+    } catch {
+      // Variable truly doesn't exist, continue to fallback
+    }
+
+    // ── Step 2: Read the visual value directly from the node ──
+    // This is more robust than relying on rawValue because:
+    // - For fills/strokes, we include paint opacity (rawValue only has RGB)
+    // - For number properties, we read straight from the node
+    try {
+      // Color: read the actual paint from the node (includes opacity)
       if (property.includes('fills') || property.includes('strokes')) {
-        if (rawValue && typeof rawValue === 'object' && 'r' in rawValue) {
-          const colorValue = rawValue as { r: number; g: number; b: number; a?: number };
+        const colorValue = this.readColorFromNode(node, property);
+        if (colorValue) {
+          console.log('[OrphanedVariables] Read color from node for: ' + property);
           return this.findColorReplacement(colorValue, property, node.type);
+        }
+        // Fall back to rawValue from inspector (RGB only, no opacity)
+        if (rawValue && typeof rawValue === 'object' && 'r' in rawValue) {
+          return this.findColorReplacement(
+            rawValue as { r: number; g: number; b: number; a?: number },
+            property,
+            node.type
+          );
         }
       }
 
-      // Handle number properties (spacing, radius, etc.)
+      // Number: try rawValue first, then read directly from node
       if (typeof rawValue === 'number') {
         return this.findNumberReplacement(rawValue, property);
       }
 
-      // Try to get the value directly from the node for number properties
       const numberProps = [
         'itemSpacing', 'counterAxisSpacing',
         'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
         'cornerRadius', 'topLeftRadius', 'topRightRadius', 'bottomLeftRadius', 'bottomRightRadius',
-        'paragraphSpacing'
+        'paragraphSpacing',
       ];
-
       if (numberProps.includes(property)) {
-        const nodeWithProps = node as unknown as Record<string, unknown>;
-        const value = nodeWithProps[property];
-        if (typeof value === 'number') {
-          return this.findNumberReplacement(value, property);
+        const nodeValue = (node as unknown as Record<string, unknown>)[property];
+        if (typeof nodeValue === 'number') {
+          return this.findNumberReplacement(nodeValue, property);
         }
       }
 
       return {};
     } catch (error) {
-      console.error('[OrphanedVariables] Error finding replacement from current value:', error);
+      console.error('[OrphanedVariables] Error finding replacement for missing variable:', error);
       return {};
     }
+  }
+
+  /**
+   * Read the current color value directly from a node's paint,
+   * including paint opacity (which rawValue from the inspector lacks).
+   */
+  private readColorFromNode(
+    node: SceneNode,
+    property: string
+  ): { r: number; g: number; b: number; a?: number } | null {
+    const fillMatch = property.match(/^fills\[(\d+)\]$/);
+    if (fillMatch && 'fills' in node) {
+      const idx = parseInt(fillMatch[1], 10);
+      const fills = (node as GeometryMixin).fills;
+      if (Array.isArray(fills) && fills[idx] && fills[idx].type === 'SOLID') {
+        const paint = fills[idx] as SolidPaint;
+        return { ...paint.color, a: paint.opacity ?? 1 };
+      }
+    }
+
+    const strokeMatch = property.match(/^strokes\[(\d+)\]$/);
+    if (strokeMatch && 'strokes' in node) {
+      const idx = parseInt(strokeMatch[1], 10);
+      const strokes = (node as GeometryMixin).strokes;
+      if (Array.isArray(strokes) && strokes[idx] && strokes[idx].type === 'SOLID') {
+        const paint = strokes[idx] as SolidPaint;
+        return { ...paint.color, a: paint.opacity ?? 1 };
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -382,7 +476,8 @@ export class NoOrphanedVariablesRule extends LintRule {
     }
 
     const hexColor = rgbToHex(colorValue);
-    const hexWithoutAlpha = hexColor.length === 9 ? hexColor.slice(0, 7) : hexColor;
+    const hasAlpha = hexColor.length === 9;
+    const hexWithoutAlpha = hasAlpha ? hexColor.slice(0, 7) : hexColor;
 
     const matches = findClosestColors(
       hexWithoutAlpha,
@@ -417,6 +512,11 @@ export class NoOrphanedVariablesRule extends LintRule {
     } else if (bestMatch.deltaE < 2) {
       confidence = 'close';
     } else {
+      confidence = 'approximate';
+    }
+
+    // When alpha was stripped, the RGB match may be misleading — downgrade confidence
+    if (hasAlpha && confidence !== 'approximate') {
       confidence = 'approximate';
     }
 
@@ -527,7 +627,7 @@ export class NoOrphanedVariablesRule extends LintRule {
   private findMatchingNumberTokens(value: number, category: 'spacing' | 'radius' | 'all'): string[] {
     const matches: Array<{ path: string; diff: number }> = [];
     const tolerance = value * NUMBER_TOLERANCE_PERCENT;
-    const maxAbsoluteTolerance = 20; // Always include tokens within 20px
+    const maxAbsoluteTolerance = 8; // Always include tokens within 8px
 
     for (const [path, token] of this.tokens.tokens) {
       // Filter by category

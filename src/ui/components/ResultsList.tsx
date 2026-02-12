@@ -19,6 +19,7 @@ interface ResultsListProps {
   onApplyStyle: (violation: LintViolation) => void;
   onIgnore: (violation: LintViolation) => void;
   fixedViolations: Set<string>;
+  unfixableViolations: Set<string>;
   ignoredViolations: Set<string>;
   isFixing: boolean;
   fixableCount: number;
@@ -30,6 +31,8 @@ const RULE_NAMES: Record<LintRuleId, string> = {
   'no-hardcoded-typography': 'Hardcoded Typography',
   'no-hardcoded-spacing': 'Hardcoded Spacing',
   'no-hardcoded-radii': 'Hardcoded Radii',
+  'no-hardcoded-stroke-weight': 'Hardcoded Stroke Weight',
+  'no-hardcoded-sizing': 'Hardcoded Sizing',
   'no-orphaned-variables': 'Orphaned Variables',
   'no-unknown-styles': 'Unknown Styles',
   'prefer-semantic-variables': 'Core Variables',
@@ -52,6 +55,7 @@ export function ResultsList({
   onApplyStyle,
   onIgnore,
   fixedViolations,
+  unfixableViolations,
   ignoredViolations,
   isFixing,
   fixableCount
@@ -108,14 +112,24 @@ export function ResultsList({
     return isFixed(violation) || isIgnored(violation);
   };
 
+  // Check if a violation has been proven unfixable (failed in a previous fix attempt)
+  const isUnfixable = (violation: LintViolation) => {
+    return unfixableViolations.has(violation.nodeId + ':' + violation.property);
+  };
+
   // Get remaining (not dismissed) violations for a group
   const getRemainingViolations = (violations: LintViolation[]) => {
     return violations.filter(v => !isDismissed(v));
   };
 
-  // Get fixable violations for a group (only from remaining)
+  // Get fixable violations for a group (only from remaining, excluding unfixable)
   const getFixableViolations = (violations: LintViolation[]) => {
-    return violations.filter(v => v.suggestedToken && !isDismissed(v));
+    return violations.filter(v =>
+      v.suggestedToken &&
+      v.suggestionConfidence !== 'approximate' &&
+      !isDismissed(v) &&
+      !isUnfixable(v)
+    );
   };
 
   // Get detachable violations for a group (only from remaining)
@@ -274,6 +288,7 @@ export function ResultsList({
                       onIgnore={() => onIgnore(violation)}
                       isFixed={isFixed(violation)}
                       isIgnored={isIgnored(violation)}
+                      isUnfixable={isUnfixable(violation)}
                       isFixing={isFixing}
                     />
                   ))}

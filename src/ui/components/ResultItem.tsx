@@ -17,6 +17,7 @@ interface ResultItemProps {
   onIgnore: () => void;
   isFixed: boolean;
   isIgnored: boolean;
+  isUnfixable: boolean;
   isFixing: boolean;
 }
 
@@ -52,11 +53,11 @@ function getConfidenceLabel(confidence?: MatchConfidence): string {
   }
 }
 
-export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, onFix, onUnbind, onDetach, onApplyStyle, onIgnore, isFixed, isIgnored, isFixing }: ResultItemProps) {
+export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, onFix, onUnbind, onDetach, onApplyStyle, onIgnore, isFixed, isIgnored, isUnfixable, isFixing }: ResultItemProps) {
   const [showAlternatives, setShowAlternatives] = useState(false);
   const hasAlternatives = violation.alternativeTokens && violation.alternativeTokens.length > 0;
   const isDismissed = isFixed || isIgnored;
-  const canFix = violation.suggestedToken && !isDismissed;
+  const canFix = violation.suggestedToken && !isDismissed && !isUnfixable && violation.suggestionConfidence !== 'approximate';
   const canUnbind = violation.canUnbind && !isDismissed;
   const canDetach = violation.canDetach && !isDismissed;
   const canApplyStyle = violation.canApplyTextStyle && violation.suggestedTextStyle && !isDismissed;

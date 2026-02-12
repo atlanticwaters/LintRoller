@@ -101,6 +101,8 @@ export type LintRuleId =
   | 'no-hardcoded-typography'
   | 'no-hardcoded-spacing'
   | 'no-hardcoded-radii'
+  | 'no-hardcoded-stroke-weight'
+  | 'no-hardcoded-sizing'
   | 'no-orphaned-variables'
   | 'no-unknown-styles'
   | 'prefer-semantic-variables';
@@ -267,6 +269,8 @@ export function getDefaultConfig(): LintConfig {
       'no-hardcoded-typography': { enabled: true, severity: 'warning' },
       'no-hardcoded-spacing': { enabled: true, severity: 'warning' },
       'no-hardcoded-radii': { enabled: true, severity: 'warning' },
+      'no-hardcoded-stroke-weight': { enabled: true, severity: 'warning' },
+      'no-hardcoded-sizing': { enabled: true, severity: 'warning' },
       'no-orphaned-variables': { enabled: true, severity: 'error' },
       'no-unknown-styles': { enabled: true, severity: 'warning' },
       'prefer-semantic-variables': { enabled: true, severity: 'warning' },

@@ -122,6 +122,8 @@ function buildSummary(violations: LintViolation[]): LintSummary {
     'no-hardcoded-typography': 0,
     'no-hardcoded-spacing': 0,
     'no-hardcoded-radii': 0,
+    'no-hardcoded-stroke-weight': 0,
+    'no-hardcoded-sizing': 0,
     'no-orphaned-variables': 0,
     'no-unknown-styles': 0,
     'prefer-semantic-variables': 0,

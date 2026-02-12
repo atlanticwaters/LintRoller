@@ -61,8 +61,8 @@ function pickContextualToken(tokenPaths: string[], keywords: string[]): string {
 /** Maximum Delta E for "close" suggestions (colors within this range are good matches) */
 const CLOSE_DELTA_E = 10;
 
-/** Maximum Delta E for any suggestions (always show something if available) */
-const MAX_DELTA_E = 50;
+/** Maximum Delta E for any suggestions (Delta E > 10 = clearly different colors) */
+const MAX_DELTA_E = 10;
 
 /** Maximum number of alternative suggestions to include */
 const MAX_ALTERNATIVES = 3;
@@ -104,7 +104,7 @@ export class NoHardcodedColorsRule extends LintRule {
       }
 
       // Find closest matching tokens
-      const matches = this.findClosestColorTokens(hexColor);
+      const { matches, alphaStripped } = this.findClosestColorTokens(hexColor);
 
       // For exact matches, override with the most contextually appropriate token
       // (e.g. text fills prefer "text/" tokens, strokes prefer "border/" tokens)
@@ -137,7 +137,11 @@ export class NoHardcodedColorsRule extends LintRule {
         } else if (bestMatch.deltaE < CLOSE_DELTA_E) {
           suggestionConfidence = 'approximate';
         } else {
-          // Still provide suggestion but mark as very approximate
+          suggestionConfidence = 'approximate';
+        }
+
+        // When alpha was stripped, the RGB match may be misleading — downgrade confidence
+        if (alphaStripped && suggestionConfidence !== 'approximate') {
           suggestionConfidence = 'approximate';
         }
 
@@ -154,51 +158,63 @@ export class NoHardcodedColorsRule extends LintRule {
 
       // Create message with match info
       let message: string;
+      const alphaNote = alphaStripped ? ' (RGB only - alpha differs)' : '';
       if (suggestedToken) {
-        if (suggestionConfidence === 'exact') {
+        if (!alphaStripped && suggestionConfidence === 'exact') {
           message = 'Hardcoded color ' + hexColor + ' - exact match available: ' + suggestedToken;
+        } else if (alphaStripped && matches[0].isExact) {
+          message = 'Hardcoded color ' + hexColor + ' - RGB match: ' + suggestedToken + alphaNote;
         } else {
           const bestMatch = matches[0];
-          message = 'Hardcoded color ' + hexColor + ' - closest token: ' + suggestedToken + ' (' + getDeltaEDescription(bestMatch.deltaE) + ')';
+          message = 'Hardcoded color ' + hexColor + ' - closest token: ' + suggestedToken + ' (' + getDeltaEDescription(bestMatch.deltaE) + ')' + alphaNote;
         }
       } else {
         message = 'Hardcoded color ' + hexColor + ' - should use a design token';
       }
 
-      violations.push(
-        this.createViolationWithSuggestions(
-          node,
-          inspection.property,
-          hexColor,
-          message,
-          suggestedToken,
-          suggestionConfidence,
-          alternativeTokens
-        )
+      const violation = this.createViolationWithSuggestions(
+        node,
+        inspection.property,
+        hexColor,
+        message,
+        suggestedToken,
+        suggestionConfidence,
+        alternativeTokens
       );
+      if (suggestionConfidence === 'approximate') {
+        violation.canIgnore = true;
+      }
+      violations.push(violation);
     }
 
     return violations;
   }
 
   /**
-   * Find closest matching color tokens using Delta E
+   * Find closest matching color tokens using Delta E.
+   * Returns alphaStripped flag when alpha was removed for RGB-only matching.
    */
-  private findClosestColorTokens(hex: string): Array<{
-    tokenPath: string;
-    tokenHex: string;
-    deltaE: number;
-    isExact: boolean;
-  }> {
-    const hexWithoutAlpha = hex.length === 9 ? hex.slice(0, 7) : hex;
+  private findClosestColorTokens(hex: string): {
+    matches: Array<{
+      tokenPath: string;
+      tokenHex: string;
+      deltaE: number;
+      isExact: boolean;
+    }>;
+    alphaStripped: boolean;
+  } {
+    const alphaStripped = hex.length === 9;
+    const hexWithoutAlpha = alphaStripped ? hex.slice(0, 7) : hex;
 
-    return findClosestColors(
+    const matches = findClosestColors(
       hexWithoutAlpha,
       this.tokens.colorValues,
       this.tokens.colorLab,
       MAX_ALTERNATIVES + 1,
       MAX_DELTA_E
     );
+
+    return { matches, alphaStripped };
   }
 
   /**
