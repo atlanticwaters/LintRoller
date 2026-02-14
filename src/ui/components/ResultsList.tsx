@@ -267,6 +267,7 @@ export function ResultsList({
                       showRuleInfo={groupBy === 'node'}
                       onSelect={() => onSelectNode(violation.nodeId)}
                       onFix={() => onFix(violation)}
+                      onFixWithToken={(tokenPath) => onFix({ ...violation, suggestedToken: tokenPath })}
                       onUnbind={() => onUnbind(violation)}
                       onDetach={() => onDetach(violation)}
                       onApplyStyle={() => onApplyStyle(violation)}

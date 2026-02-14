@@ -43,6 +43,51 @@ export interface ColorMatch {
 }
 
 /**
+ * Composite an RGBA color onto a white background.
+ * Converts 8-digit hex (e.g., "#0000001a") to the effective 6-digit hex
+ * as it would appear on a white (#ffffff) background.
+ *
+ * 6-digit hex values pass through unchanged.
+ *
+ * @example
+ * compositeOnWhite("#0000001a") // "#e5e5e5" (10% black on white = light gray)
+ * compositeOnWhite("#ff0000")   // "#ff0000" (no alpha, pass through)
+ */
+export function compositeOnWhite(hex: string): string {
+  const cleaned = hex.replace(/^#/, '').toLowerCase();
+
+  // 6-digit or 3-digit hex: no alpha, pass through
+  if (cleaned.length === 6 || cleaned.length === 3) {
+    return hex.toLowerCase();
+  }
+
+  // 8-digit hex: extract RGBA and composite on white
+  if (cleaned.length === 8) {
+    const r = parseInt(cleaned.slice(0, 2), 16);
+    const g = parseInt(cleaned.slice(2, 4), 16);
+    const b = parseInt(cleaned.slice(4, 6), 16);
+    const a = parseInt(cleaned.slice(6, 8), 16) / 255;
+
+    if (isNaN(r) || isNaN(g) || isNaN(b) || isNaN(a)) {
+      return hex.toLowerCase();
+    }
+
+    // Alpha compositing: result = foreground * alpha + background * (1 - alpha)
+    // Background is white (255, 255, 255)
+    const cr = Math.round(r * a + 255 * (1 - a));
+    const cg = Math.round(g * a + 255 * (1 - a));
+    const cb = Math.round(b * a + 255 * (1 - a));
+
+    return '#' + cr.toString(16).padStart(2, '0')
+      + cg.toString(16).padStart(2, '0')
+      + cb.toString(16).padStart(2, '0');
+  }
+
+  // Unrecognized format, return as-is
+  return hex.toLowerCase();
+}
+
+/**
  * Parse hex color string to RGB
  */
 export function hexToRgb(hex: string): RGB255 | null {

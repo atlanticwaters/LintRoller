@@ -1229,3 +1229,56 @@ body {
   font-size: var(--font-size-sm);
   color: var(--figma-color-text-secondary);
 }
+
+/* =============================================
+   Color Swatches
+   ============================================= */
+.color-comparison {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.color-comparison .arrow {
+  font-size: 10px;
+  color: var(--figma-color-text-tertiary);
+}
+
+.color-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.color-swatch.large {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}
+
+.alternative-item.clickable {
+  cursor: pointer;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease;
+}
+
+.alternative-item.clickable:hover {
+  background-color: var(--figma-color-bg);
+}
+
+.alternative-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}

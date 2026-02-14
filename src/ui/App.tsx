@@ -117,6 +117,8 @@ export function App() {
               next.add(key);
               return next;
             });
+            // Re-scan to verify the fix persisted and update results
+            handleScan();
           } else {
             // Always show error, even if message is undefined
             const errorMsg = msg.message || 'Unknown error occurred';

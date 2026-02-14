@@ -7,7 +7,7 @@
 
 import type { LintViolation, PropertyInspection, RuleConfig, TokenCollection, MatchConfidence, TokenSuggestion } from '../../shared/types';
 import { LintRule } from './base';
-import { findClosestColors, getDeltaEDescription } from '../../shared/color-distance';
+import { findClosestColors, getDeltaEDescription, compositeOnWhite } from '../../shared/color-distance';
 import { rgbToHex } from '../inspector';
 
 /** Maximum Delta E for color suggestions */
@@ -58,6 +58,8 @@ export class NoUnknownStylesRule extends LintRule {
         violation.canDetach = true;
         violation.suggestionConfidence = suggestion?.confidence;
         violation.alternativeTokens = suggestion?.alternatives;
+        violation.currentHexColor = suggestion?.currentHexColor;
+        violation.suggestedHexColor = suggestion?.suggestedHexColor;
         violations.push(violation);
       }
     }
@@ -77,6 +79,8 @@ export class NoUnknownStylesRule extends LintRule {
         violation.canDetach = true;
         violation.suggestionConfidence = suggestion?.confidence;
         violation.alternativeTokens = suggestion?.alternatives;
+        violation.currentHexColor = suggestion?.currentHexColor;
+        violation.suggestedHexColor = suggestion?.suggestedHexColor;
         violations.push(violation);
       }
     }
@@ -120,7 +124,9 @@ export class NoUnknownStylesRule extends LintRule {
   }
 
   /**
-   * Find a color token suggestion based on the node's current color
+   * Find a color token suggestion based on the node's current color.
+   * Uses allColorPaths to get ALL tokens for a hex, then picks the
+   * most contextually relevant one (e.g., fills prefer background tokens).
    */
   private async findColorSuggestion(
     node: SceneNode,
@@ -129,6 +135,8 @@ export class NoUnknownStylesRule extends LintRule {
     suggestedToken?: string;
     confidence?: MatchConfidence;
     alternatives?: TokenSuggestion[];
+    currentHexColor?: string;
+    suggestedHexColor?: string;
   } | null> {
     try {
       if (!(paintType in node)) return null;
@@ -141,19 +149,65 @@ export class NoUnknownStylesRule extends LintRule {
       if (!solidPaint) return null;
 
       const hexColor = rgbToHex(solidPaint.color);
-      const hexWithoutAlpha = hexColor.length === 9 ? hexColor.slice(0, 7) : hexColor;
+      // Composite alpha colors onto white for perceptual matching
+      const matchHex = compositeOnWhite(hexColor);
 
       const matches = findClosestColors(
-        hexWithoutAlpha,
+        matchHex,
         this.tokens.colorValues,
         this.tokens.colorLab,
-        MAX_ALTERNATIVES + 1,
+        MAX_ALTERNATIVES + 3,
         MAX_COLOR_DELTA_E
       );
 
       if (matches.length === 0) return null;
 
-      const bestMatch = matches[0];
+      // Category hints for context-aware selection
+      const categoryHints: Record<string, string[]> = {
+        'fills': ['background', 'surface', 'container', 'overlay', 'accent'],
+        'strokes': ['border', 'outline', 'divider', 'separator'],
+      };
+
+      // Expand exact matches to all tokens with that hex, score by context
+      const candidates: Array<{ path: string; hex: string; deltaE: number; isExact: boolean; score: number }> = [];
+      for (const match of matches) {
+        const allPaths = this.tokens.allColorPaths.get(match.tokenHex.toLowerCase()) || [match.tokenPath];
+        for (const path of allPaths) {
+          let score = 0;
+          const lowerPath = path.toLowerCase();
+          const hints = categoryHints[paintType];
+          if (hints) {
+            for (const hint of hints) {
+              if (lowerPath.includes(hint)) score += 5;
+            }
+          }
+          // Penalize wrong-category tokens
+          if (paintType === 'fills' && (lowerPath.includes('.icon.') || lowerPath.includes('.text.'))) {
+            score -= 10;
+          }
+          candidates.push({ path, hex: match.tokenHex, deltaE: match.deltaE, isExact: match.isExact, score });
+        }
+      }
+
+      // Sort: exact first, then by score (desc), then by deltaE (asc)
+      candidates.sort((a, b) => {
+        if (a.isExact && !b.isExact) return -1;
+        if (!a.isExact && b.isExact) return 1;
+        if (a.score !== b.score) return b.score - a.score;
+        return a.deltaE - b.deltaE;
+      });
+
+      // Deduplicate
+      const seen = new Set<string>();
+      const unique = candidates.filter(c => {
+        if (seen.has(c.path)) return false;
+        seen.add(c.path);
+        return true;
+      });
+
+      if (unique.length === 0) return null;
+
+      const bestMatch = unique[0];
       let confidence: MatchConfidence;
 
       if (bestMatch.isExact) {
@@ -164,19 +218,29 @@ export class NoUnknownStylesRule extends LintRule {
         confidence = 'approximate';
       }
 
-      const alternatives = matches.length > 1
-        ? matches.slice(1, MAX_ALTERNATIVES + 1).map(m => ({
-            path: m.tokenPath,
-            value: m.tokenHex,
-            distance: Math.round(m.deltaE * 10) / 10,
-            description: getDeltaEDescription(m.deltaE),
+      const alternatives = unique.length > 1
+        ? unique.slice(1, MAX_ALTERNATIVES + 1).map(c => ({
+            path: c.path,
+            value: c.hex,
+            distance: Math.round(c.deltaE * 10) / 10,
+            description: c.isExact
+              ? (c.score > 0 ? 'exact color, similar context' : 'exact color, different context')
+              : getDeltaEDescription(c.deltaE),
           }))
         : undefined;
 
+      // Look up the suggested token's resolved hex color
+      const suggestedToken = this.tokens.tokens.get(bestMatch.path);
+      const suggestedHexColor = suggestedToken && typeof suggestedToken.resolvedValue === 'string'
+        ? suggestedToken.resolvedValue
+        : bestMatch.hex;
+
       return {
-        suggestedToken: bestMatch.tokenPath,
+        suggestedToken: bestMatch.path,
         confidence,
         alternatives,
+        currentHexColor: hexColor,
+        suggestedHexColor,
       };
     } catch (error) {
       console.error('[NoUnknownStyles] Error finding color suggestion:', error);

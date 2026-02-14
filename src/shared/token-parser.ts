@@ -13,7 +13,7 @@ import type {
   TokenType,
   LAB,
 } from './types';
-import { hexToLab } from './color-distance';
+import { hexToLab, compositeOnWhite } from './color-distance';
 
 /** Internal token with source tracking */
 interface InternalToken extends RawToken {
@@ -274,6 +274,7 @@ export class TokenParser {
     const tokens = new Map(this.resolvedTokens);
     const byType = new Map<TokenType, ResolvedToken[]>();
     const colorValues = new Map<string, string>();
+    const allColorPaths = new Map<string, string[]>();
     const numberValues = new Map<number, string[]>();
     const colorLab = new Map<string, LAB>();
 
@@ -286,25 +287,35 @@ export class TokenParser {
       typeList.push(token);
       byType.set(token.type, typeList);
 
-      // Index color values by hex - prefer semantic tokens over core tokens
+      // Index color values by effective hex (composited on white for alpha colors)
+      // This ensures transparent colors match perceptually rather than by raw RGB
       if (token.type === 'color' && typeof token.resolvedValue === 'string') {
-        const hex = token.resolvedValue.toLowerCase();
+        const rawHex = token.resolvedValue.toLowerCase();
         // Only index if it's a valid hex color (not gradient)
-        if (hex.startsWith('#')) {
+        if (rawHex.startsWith('#')) {
+          // Composite onto white so #0000001a indexes as #e5e5e5 (light gray)
+          const effectiveHex = compositeOnWhite(rawHex);
           const isSemantic = this.isSemanticToken(token);
-          const existingIsSemantic = colorIsSemanticMap.get(hex) || false;
+          const existingIsSemantic = colorIsSemanticMap.get(effectiveHex) || false;
 
-          // Store this token if:
-          // 1. No token stored yet for this hex, OR
-          // 2. This is a semantic token and the existing one is not
-          if (!colorValues.has(hex) || (isSemantic && !existingIsSemantic)) {
-            colorValues.set(hex, token.path);
-            colorIsSemanticMap.set(hex, isSemantic);
+          // Build full list of ALL token paths per effective hex (for context-aware suggestions)
+          const allPaths = allColorPaths.get(effectiveHex) || [];
+          if (isSemantic) {
+            allPaths.unshift(token.path); // semantic tokens first
+          } else {
+            allPaths.push(token.path);
+          }
+          allColorPaths.set(effectiveHex, allPaths);
 
-            // Pre-compute LAB value for Delta E calculations
-            const lab = hexToLab(hex);
+          // Store preferred single token (backward compat for colorValues)
+          if (!colorValues.has(effectiveHex) || (isSemantic && !existingIsSemantic)) {
+            colorValues.set(effectiveHex, token.path);
+            colorIsSemanticMap.set(effectiveHex, isSemantic);
+
+            // Pre-compute LAB value for Delta E calculations using effective hex
+            const lab = hexToLab(effectiveHex);
             if (lab) {
-              colorLab.set(hex, lab);
+              colorLab.set(effectiveHex, lab);
             }
           }
         }
@@ -329,6 +340,7 @@ export class TokenParser {
       tokens,
       byType,
       colorValues,
+      allColorPaths,
       numberValues,
       colorLab,
     };

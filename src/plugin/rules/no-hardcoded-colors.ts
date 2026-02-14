@@ -5,7 +5,7 @@
  */
 
 import type { LintViolation, PropertyInspection, MatchConfidence, TokenSuggestion } from '../../shared/types';
-import { findClosestColors, getDeltaEDescription } from '../../shared/color-distance';
+import { findClosestColors, getDeltaEDescription, compositeOnWhite } from '../../shared/color-distance';
 import { rgbToHex } from '../inspector';
 import { LintRule } from './base';
 
@@ -116,17 +116,29 @@ export class NoHardcodedColorsRule extends LintRule {
         message = 'Hardcoded color ' + hexColor + ' - should use a design token';
       }
 
-      violations.push(
-        this.createViolationWithSuggestions(
-          node,
-          inspection.property,
-          hexColor,
-          message,
-          suggestedToken,
-          suggestionConfidence,
-          alternativeTokens
-        )
+      // Look up the suggested token's resolved hex for the swatch
+      let suggestedHexColor: string | undefined;
+      if (suggestedToken) {
+        const tokenData = this.tokens.tokens.get(suggestedToken);
+        if (tokenData && typeof tokenData.resolvedValue === 'string') {
+          suggestedHexColor = tokenData.resolvedValue;
+        } else if (matches.length > 0) {
+          suggestedHexColor = matches[0].tokenHex;
+        }
+      }
+
+      const violation = this.createViolationWithSuggestions(
+        node,
+        inspection.property,
+        hexColor,
+        message,
+        suggestedToken,
+        suggestionConfidence,
+        alternativeTokens
       );
+      violation.currentHexColor = hexColor;
+      violation.suggestedHexColor = suggestedHexColor;
+      violations.push(violation);
     }
 
     return violations;
@@ -141,10 +153,10 @@ export class NoHardcodedColorsRule extends LintRule {
     deltaE: number;
     isExact: boolean;
   }> {
-    const hexWithoutAlpha = hex.length === 9 ? hex.slice(0, 7) : hex;
+    const matchHex = compositeOnWhite(hex);
 
     return findClosestColors(
-      hexWithoutAlpha,
+      matchHex,
       this.tokens.colorValues,
       this.tokens.colorLab,
       MAX_ALTERNATIVES + 1,

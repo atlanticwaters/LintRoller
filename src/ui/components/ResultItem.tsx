@@ -11,6 +11,7 @@ interface ResultItemProps {
   showRuleInfo: boolean;
   onSelect: () => void;
   onFix: () => void;
+  onFixWithToken?: (tokenPath: string) => void;
   onUnbind: () => void;
   onDetach: () => void;
   onApplyStyle: () => void;
@@ -44,7 +45,7 @@ function getConfidenceLabel(confidence?: MatchConfidence): string {
     case 'exact':
       return 'Exact match';
     case 'close':
-      return 'Close match';
+      return 'Color match';
     case 'approximate':
       return 'Approximate';
     default:
@@ -52,7 +53,7 @@ function getConfidenceLabel(confidence?: MatchConfidence): string {
   }
 }
 
-export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, onFix, onUnbind, onDetach, onApplyStyle, onIgnore, isFixed, isIgnored, isFixing }: ResultItemProps) {
+export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, onFix, onFixWithToken, onUnbind, onDetach, onApplyStyle, onIgnore, isFixed, isIgnored, isFixing }: ResultItemProps) {
   const [showAlternatives, setShowAlternatives] = useState(false);
   const hasAlternatives = violation.alternativeTokens && violation.alternativeTokens.length > 0;
   const isDismissed = isFixed || isIgnored;
@@ -87,6 +88,15 @@ export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, on
 
         {violation.suggestedToken && !isDismissed && (
           <div className={'suggestion ' + getConfidenceClass(violation.suggestionConfidence)}>
+            {violation.currentHexColor && (
+              <span className="color-comparison">
+                <span className="color-swatch" style={{ backgroundColor: violation.currentHexColor }} title={violation.currentHexColor} />
+                <span className="arrow">{'→'}</span>
+                {violation.suggestedHexColor && (
+                  <span className="color-swatch" style={{ backgroundColor: violation.suggestedHexColor }} title={violation.suggestedHexColor} />
+                )}
+              </span>
+            )}
             <span className="suggestion-label">
               {violation.suggestionConfidence && (
                 <span className={'confidence-badge ' + getConfidenceClass(violation.suggestionConfidence)}>
@@ -112,11 +122,21 @@ export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, on
         {showAlternatives && hasAlternatives && !isDismissed && (
           <div className="alternatives-list">
             {violation.alternativeTokens!.map((alt, idx) => (
-              <div key={idx} className="alternative-item">
-                <code>{alt.path}</code>
-                <span className="alternative-distance">
-                  {typeof alt.value === 'string' ? alt.value : alt.value + 'px'} - {alt.description}
-                </span>
+              <div
+                key={idx}
+                className={'alternative-item' + (onFixWithToken ? ' clickable' : '')}
+                onClick={onFixWithToken ? (e => { e.stopPropagation(); onFixWithToken(alt.path); }) : undefined}
+                title={onFixWithToken ? 'Click to apply ' + alt.path : undefined}
+              >
+                {typeof alt.value === 'string' && alt.value.startsWith('#') && (
+                  <span className="color-swatch" style={{ backgroundColor: alt.value }} title={alt.value} />
+                )}
+                <div className="alternative-item-info">
+                  <code>{alt.path}</code>
+                  <span className="alternative-distance">
+                    {typeof alt.value === 'string' ? alt.value : alt.value + 'px'} - {alt.description}
+                  </span>
+                </div>
               </div>
             ))}
           </div>

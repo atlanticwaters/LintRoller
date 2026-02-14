@@ -169,6 +169,50 @@ describe('TokenParser', () => {
       expect(result.colorValues.get('#00ff00')).toBe('green');
     });
 
+    it('stores all token paths per hex in allColorPaths', () => {
+      const parser = new TokenParser();
+      const files: TokenFileInput[] = [
+        {
+          path: 'core',
+          content: {
+            neutrals: {
+              white: { $type: 'color', $value: '#ffffff' },
+            },
+          },
+        },
+        {
+          path: 'semantic',
+          content: {
+            system: {
+              icon: {
+                'on-surface-color': {
+                  inverse: { $type: 'color', $value: '{neutrals.white}' },
+                },
+              },
+              background: {
+                'container-color': {
+                  white: { $type: 'color', $value: '{neutrals.white}' },
+                },
+              },
+            },
+          },
+        },
+      ];
+
+      const result = parser.parseTokenFiles(files);
+
+      // colorValues stores just one preferred path
+      expect(result.colorValues.has('#ffffff')).toBe(true);
+
+      // allColorPaths stores ALL paths for the same hex
+      const allPaths = result.allColorPaths.get('#ffffff');
+      expect(allPaths).toBeDefined();
+      expect(allPaths!.length).toBeGreaterThanOrEqual(3);
+      expect(allPaths).toContain('neutrals.white');
+      expect(allPaths).toContain('system.icon.on-surface-color.inverse');
+      expect(allPaths).toContain('system.background.container-color.white');
+    });
+
     it('builds number value index', () => {
       const parser = new TokenParser();
       const files: TokenFileInput[] = [

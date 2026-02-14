@@ -51,44 +51,60 @@ export function rgbToHex(color: RGB | RGBA): string {
  */
 export class PropertyInspector {
   /**
-   * Inspect fills and strokes for color bindings
+   * Inspect fills and strokes for color bindings.
+   *
+   * Paint-level variable bindings are stored on each paint object's
+   * boundVariables.color property (set by setBoundVariableForPaint),
+   * NOT on node.boundVariables.fills.
    */
   inspectPaints(node: SceneNode): PropertyInspection[] {
     const results: PropertyInspection[] = [];
 
-    // Check fills
+    // Check fills - read binding from each paint object directly
     if ('fills' in node && Array.isArray(node.fills)) {
-      const boundVars = (node.boundVariables as Record<string, unknown>) || {};
-      const fillBindings = boundVars.fills as Array<{ id: string } | undefined> | undefined;
-
       for (let i = 0; i < node.fills.length; i++) {
         const fill = node.fills[i] as Paint;
         if (fill.type === 'SOLID' && fill.visible !== false) {
-          const binding = fillBindings?.[i];
+          const solidFill = fill as SolidPaint;
+          const paintBoundVars = (solidFill as unknown as {
+            boundVariables?: { color?: { id: string } };
+          }).boundVariables;
+          const bindingId = paintBoundVars?.color?.id;
+          // Include paint opacity so alpha colors are matched correctly
+          const fillOpacity = solidFill.opacity;
+          const fillRawValue = (fillOpacity !== undefined && fillOpacity < 1)
+            ? { r: solidFill.color.r, g: solidFill.color.g, b: solidFill.color.b, a: fillOpacity }
+            : solidFill.color;
           results.push({
             property: `fills[${i}]`,
-            isBound: !!binding?.id,
-            boundVariableId: binding?.id,
-            rawValue: (fill as SolidPaint).color,
+            isBound: !!bindingId,
+            boundVariableId: bindingId,
+            rawValue: fillRawValue,
           });
         }
       }
     }
 
-    // Check strokes
+    // Check strokes - read binding from each paint object directly
     if ('strokes' in node && Array.isArray(node.strokes)) {
-      const boundVars = (node.boundVariables as Record<string, unknown>) || {};
-      const strokeBindings = boundVars.strokes as Array<{ id: string } | undefined> | undefined;
-
       for (let i = 0; i < node.strokes.length; i++) {
         const stroke = node.strokes[i] as Paint;
         if (stroke.type === 'SOLID' && stroke.visible !== false) {
-          const binding = strokeBindings?.[i];
+          const solidStroke = stroke as SolidPaint;
+          const paintBoundVars = (solidStroke as unknown as {
+            boundVariables?: { color?: { id: string } };
+          }).boundVariables;
+          const bindingId = paintBoundVars?.color?.id;
+          // Include paint opacity so alpha colors are matched correctly
+          const strokeOpacity = solidStroke.opacity;
+          const strokeRawValue = (strokeOpacity !== undefined && strokeOpacity < 1)
+            ? { r: solidStroke.color.r, g: solidStroke.color.g, b: solidStroke.color.b, a: strokeOpacity }
+            : solidStroke.color;
           results.push({
             property: `strokes[${i}]`,
-            isBound: !!binding?.id,
-            boundVariableId: binding?.id,
-            rawValue: (stroke as SolidPaint).color,
+            isBound: !!bindingId,
+            boundVariableId: bindingId,
+            rawValue: strokeRawValue,
           });
         }
       }

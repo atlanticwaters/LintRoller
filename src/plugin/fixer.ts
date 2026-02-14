@@ -141,6 +141,21 @@ async function applyColorFix(
         newFills[index] = paintWithVariable;
         (node as GeometryMixin).fills = newFills;
 
+        // Verify the binding persisted by reading it back from the paint
+        const verifyFills = (node as GeometryMixin).fills;
+        if (Array.isArray(verifyFills) && verifyFills[index]) {
+          const verifyPaint = verifyFills[index] as SolidPaint;
+          const verifyBound = (verifyPaint as unknown as {
+            boundVariables?: { color?: { id: string } };
+          }).boundVariables;
+          if (!verifyBound?.color?.id) {
+            return {
+              success: false,
+              message: 'Fill variable binding did not persist after assignment',
+            };
+          }
+        }
+
         return {
           success: true,
           beforeValue,
@@ -178,6 +193,21 @@ async function applyColorFix(
 
         newStrokes[index] = paintWithVariable;
         (node as GeometryMixin).strokes = newStrokes;
+
+        // Verify the binding persisted by reading it back from the paint
+        const verifyStrokes = (node as GeometryMixin).strokes;
+        if (Array.isArray(verifyStrokes) && verifyStrokes[index]) {
+          const verifyPaint = verifyStrokes[index] as SolidPaint;
+          const verifyBound = (verifyPaint as unknown as {
+            boundVariables?: { color?: { id: string } };
+          }).boundVariables;
+          if (!verifyBound?.color?.id) {
+            return {
+              success: false,
+              message: 'Stroke variable binding did not persist after assignment',
+            };
+          }
+        }
 
         return {
           success: true,
@@ -266,6 +296,16 @@ async function applyNumberFix(
         cornerNode.setBoundVariable('topRightRadius', variable);
         cornerNode.setBoundVariable('bottomLeftRadius', variable);
         cornerNode.setBoundVariable('bottomRightRadius', variable);
+
+        // Verify at least one corner binding persisted
+        const verifyCornerVars = (cornerNode.boundVariables as Record<string, { id: string } | undefined>) || {};
+        if (!verifyCornerVars.topLeftRadius?.id) {
+          return {
+            success: false,
+            message: 'Corner radius variable binding did not persist after assignment',
+          };
+        }
+
         return {
           success: true,
           beforeValue,
@@ -278,6 +318,15 @@ async function applyNumberFix(
     // Bind the variable
     (node as SceneNode & { setBoundVariable: (field: VariableBindableNodeField, variable: Variable) => void })
       .setBoundVariable(bindableField, variable);
+
+    // Verify the binding persisted
+    const verifyBoundVars = (node.boundVariables as Record<string, { id: string } | undefined>) || {};
+    if (!verifyBoundVars[bindableField]?.id) {
+      return {
+        success: false,
+        message: 'Variable binding for ' + property + ' did not persist after assignment',
+      };
+    }
 
     return {
       success: true,

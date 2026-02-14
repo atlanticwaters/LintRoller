@@ -51,8 +51,10 @@ export interface TokenCollection {
   tokens: Map<string, ResolvedToken>;
   /** Tokens grouped by type */
   byType: Map<TokenType, ResolvedToken[]>;
-  /** Color hex values to token paths (lowercase) */
+  /** Color hex values to preferred token path (lowercase, prefers semantic tokens) */
   colorValues: Map<string, string>;
+  /** Color hex values to ALL token paths (lowercase) - for context-aware suggestions */
+  allColorPaths: Map<string, string[]>;
   /** Number values to token paths (for spacing, radius, etc.) */
   numberValues: Map<number, string[]>;
   /** Pre-computed LAB values for color tokens (for Delta E calculations) */
@@ -181,6 +183,10 @@ export interface LintViolation {
   canApplyTextStyle?: boolean;
   /** Whether this violation can be ignored (no fix available within tolerance) */
   canIgnore?: boolean;
+  /** Hex color of the current value (for color swatches in UI) */
+  currentHexColor?: string;
+  /** Hex color of the suggested token (for color swatches in UI) */
+  suggestedHexColor?: string;
 }
 
 /**
