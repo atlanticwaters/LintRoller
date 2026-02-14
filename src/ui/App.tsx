@@ -8,6 +8,7 @@ import type {
   LintResults,
   LintViolation,
   ScanScope,
+  TokenSource,
 } from '../shared/types';
 import { getDefaultConfig } from '../shared/types';
 import type { PluginToUIMessage, UIToPluginMessage, FixActionDetail } from '../shared/messages';
@@ -18,9 +19,11 @@ import { FixStatusBar } from './components/FixStatusBar';
 import { ActivityLog } from './components/ActivityLog';
 import { ResultsList } from './components/ResultsList';
 import { ConfigPanel } from './components/ConfigPanel';
-import { loadTokenFiles } from './tokens-loader';
+import { SyncPanel } from './components/SyncPanel';
+import { TokenSourceSelector } from './components/TokenSourceSelector';
+import { loadTokenFilesBySource } from './tokens-loader';
 
-type View = 'results' | 'config';
+type View = 'results' | 'config' | 'sync';
 
 export function App() {
   const [config, setConfig] = useState<LintConfig>(getDefaultConfig());
@@ -33,11 +36,15 @@ export function App() {
   const [groupBy, setGroupBy] = useState<'rule' | 'node'>('rule');
   const [tokenCount, setTokenCount] = useState(0);
   const [fixedViolations, setFixedViolations] = useState<Set<string>>(new Set());
+  const [unfixableViolations, setUnfixableViolations] = useState<Set<string>>(new Set());
   const [ignoredViolations, setIgnoredViolations] = useState<Set<string>>(new Set());
   const [fixActions, setFixActions] = useState<FixActionDetail[]>([]);
   const [fixProgress, setFixProgress] = useState<{ current: number; total: number } | null>(null);
   const [showActivityLog, setShowActivityLog] = useState(false);
   const [ignoredViolationsLoaded, setIgnoredViolationsLoaded] = useState(false);
+  const [tokenSource, setTokenSource] = useState<TokenSource>('local');
+  const [isLoadingTokens, setIsLoadingTokens] = useState(false);
+  const [tokenSourceLoaded, setTokenSourceLoaded] = useState(false);
 
   // Send message to plugin
   const postMessage = useCallback((message: UIToPluginMessage) => {
@@ -64,8 +71,9 @@ export function App() {
       switch (msg.type) {
         case 'SCAN_STARTED':
           setProgress({ processed: 0, total: msg.totalNodes });
-          setFixedViolations(new Set()); // Reset fixed violations on new scan
-          // Note: Do NOT reset ignoredViolations - they persist across scans
+          // Note: Do NOT reset fixedViolations — we need them to detect silent fix failures
+          // Note: Do NOT reset ignoredViolations — they persist across scans
+          // Note: Do NOT reset unfixableViolations — they persist across scans
           setFixActions([]); // Reset activity log on new scan
           setFixProgress(null);
           setShowActivityLog(false);
@@ -76,6 +84,42 @@ export function App() {
           break;
 
         case 'SCAN_COMPLETE':
+          // Detect "silent fix failures": violations that were marked as fixed
+          // but reappeared in the new scan results → move to unfixable
+          setFixedViolations(prev => {
+            if (prev.size === 0) return prev;
+
+            const newViolationKeys = new Set(
+              msg.results.violations.map((v: LintViolation) => v.nodeId + ':' + v.property)
+            );
+
+            // Find keys that were "fixed" but reappeared
+            const silentFailures: string[] = [];
+            const trulyFixed: string[] = [];
+            for (const key of prev) {
+              if (newViolationKeys.has(key)) {
+                silentFailures.push(key);
+              } else {
+                trulyFixed.push(key);
+              }
+            }
+
+            // Move silent failures to unfixable
+            if (silentFailures.length > 0) {
+              setUnfixableViolations(prevUnfixable => {
+                const next = new Set(prevUnfixable);
+                for (const key of silentFailures) {
+                  next.add(key);
+                }
+                return next;
+              });
+              console.log('[UI] Detected', silentFailures.length, 'silent fix failures (fix reported success but binding did not persist)');
+            }
+
+            // Keep only truly fixed items (not in new scan results)
+            return new Set(trulyFixed);
+          });
+
           setResults(msg.results);
           setIsScanning(false);
           setView('results');
@@ -87,6 +131,7 @@ export function App() {
 
         case 'TOKENS_LOADED':
           setTokenCount(msg.tokenCount);
+          setUnfixableViolations(new Set()); // New tokens could fix previously unfixable items
           break;
 
         case 'FIX_APPLIED':
@@ -109,12 +154,22 @@ export function App() {
           setFixActions(prev => [...prev, fixAction]);
 
           if (msg.success) {
-            // Mark this violation as fixed
+            // Mark violations as fixed
             setFixedViolations(prev => {
               const next = new Set(prev);
               // Create a unique key for this violation
               const key = msg.nodeId + ':' + msg.property;
               next.add(key);
+
+              // If this was a text style application, mark ALL typography violations
+              // for the same node as fixed, since text styles affect all typography properties
+              if (msg.actionType === 'apply-style') {
+                const typographyProps = ['fontSize', 'lineHeight', 'letterSpacing'];
+                for (const prop of typographyProps) {
+                  next.add(msg.nodeId + ':' + prop);
+                }
+              }
+
               return next;
             });
             // Re-scan to verify the fix persisted and update results
@@ -131,26 +186,51 @@ export function App() {
           setFixProgress({ current: msg.current, total: msg.total });
           // Add current action to activity log
           setFixActions(prev => [...prev, msg.currentAction]);
+          // Track failed fixes so they don't reappear as fixable after rescan
+          if (msg.currentAction.status === 'failed') {
+            setUnfixableViolations(prev => {
+              const next = new Set(prev);
+              next.add(msg.currentAction.nodeId + ':' + msg.currentAction.property);
+              return next;
+            });
+          }
           break;
 
         case 'BULK_FIX_COMPLETE':
           setIsFixing(false);
           setFixProgress(null);
 
-          // Actions are already added via FIX_PROGRESS, but add any that might be missing
+          // Show the activity log
           if (msg.actions && msg.actions.length > 0) {
-            // The actions are already in the log from FIX_PROGRESS messages
-            // But we can show the activity log automatically
             setShowActivityLog(true);
+          }
+
+          // Mark successful fixes in fixedViolations so UI hides them immediately
+          // (Don't auto-rescan — bindings can silently fail, causing an infinite loop)
+          if (msg.actions) {
+            setFixedViolations(prev => {
+              const next = new Set(prev);
+              for (const action of msg.actions!) {
+                if (action.status === 'success') {
+                  next.add(action.nodeId + ':' + action.property);
+                }
+              }
+              return next;
+            });
+            setUnfixableViolations(prev => {
+              const next = new Set(prev);
+              for (const action of msg.actions!) {
+                if (action.status === 'failed') {
+                  next.add(action.nodeId + ':' + action.property);
+                }
+              }
+              return next;
+            });
           }
 
           if (msg.failed > 0) {
             console.error('Bulk fix errors:', msg.errors);
-            alert('Fixed ' + msg.successful + ' issues. ' + msg.failed + ' failed.\n\n' + msg.errors.slice(0, 3).join('\n'));
-          }
-          // Re-scan to update results
-          if (msg.successful > 0) {
-            handleScan();
+            alert(['Fixed ' + msg.successful + ' issues. ' + msg.failed + ' failed.'].concat(msg.errors.slice(0, 3)).join(' | '));
           }
           break;
 
@@ -158,7 +238,7 @@ export function App() {
           setIsFixing(false);
           if (msg.failed > 0) {
             console.error('Bulk detach errors:', msg.errors);
-            alert('Detached ' + msg.successful + ' styles. ' + msg.failed + ' failed.\n\n' + msg.errors.slice(0, 3).join('\n'));
+            alert(['Detached ' + msg.successful + ' styles. ' + msg.failed + ' failed.'].concat(msg.errors.slice(0, 3)).join(' | '));
           }
           // Re-scan to update results
           if (msg.successful > 0) {
@@ -173,6 +253,12 @@ export function App() {
           console.log('[UI] Loaded', msg.ignoredKeys.length, 'ignored violations from storage');
           break;
 
+        case 'TOKEN_SOURCE_LOADED':
+          setTokenSource(msg.source);
+          setTokenSourceLoaded(true);
+          console.log('[UI] Loaded token source preference:', msg.source);
+          break;
+
         case 'ERROR':
           console.error('Plugin error:', msg.message);
           setIsScanning(false);
@@ -185,13 +271,24 @@ export function App() {
     return () => window.removeEventListener('message', handleMessage);
   }, [handleScan]);
 
-  // Load tokens on mount and send to plugin
+  // Load token source preference and ignored violations from storage on mount
   useEffect(() => {
+    postMessage({ type: 'LOAD_TOKEN_SOURCE' });
+    postMessage({ type: 'LOAD_IGNORED_VIOLATIONS' });
+  }, [postMessage]);
+
+  // Load tokens when source preference is loaded or source changes
+  useEffect(() => {
+    if (!tokenSourceLoaded) return;
+
+    let cancelled = false;
     async function loadAndSendTokens() {
       try {
-        console.log('[UI] Starting token load...');
-        const files = await loadTokenFiles();
-        console.log('[UI] Token files loaded, sending to plugin...');
+        setIsLoadingTokens(true);
+        console.log(`[UI] Loading tokens from source: ${tokenSource}`);
+        const files = await loadTokenFilesBySource(tokenSource);
+        if (cancelled) return;
+        console.log(`[UI] ${files.length} token files loaded, sending to plugin...`);
         postMessage({
           type: 'TOKEN_FILES_LOADED',
           files: files.map(f => ({
@@ -201,15 +298,13 @@ export function App() {
         });
       } catch (error) {
         console.error('[UI] Failed to load tokens:', error);
+      } finally {
+        if (!cancelled) setIsLoadingTokens(false);
       }
     }
     loadAndSendTokens();
-  }, [postMessage]);
-
-  // Load ignored violations from storage on mount
-  useEffect(() => {
-    postMessage({ type: 'LOAD_IGNORED_VIOLATIONS' });
-  }, [postMessage]);
+    return () => { cancelled = true; };
+  }, [tokenSource, tokenSourceLoaded, postMessage]);
 
   // Save ignored violations to storage whenever they change
   useEffect(() => {
@@ -233,7 +328,7 @@ export function App() {
   // Apply a fix to a single violation
   const handleFix = useCallback(
     (violation: LintViolation) => {
-      if (!violation.suggestedToken) return;
+      if (!violation.suggestedToken || violation.suggestionConfidence === 'approximate') return;
 
       setIsFixing(true);
       postMessage({
@@ -250,7 +345,11 @@ export function App() {
   // Apply fixes to multiple violations
   const handleBulkFix = useCallback(
     (violations: LintViolation[]) => {
-      const fixable = violations.filter(v => v.suggestedToken);
+      const fixable = violations.filter(v =>
+        v.suggestedToken &&
+        v.suggestionConfidence !== 'approximate' &&
+        !unfixableViolations.has(v.nodeId + ':' + v.property)
+      );
       if (fixable.length === 0) return;
 
       setIsFixing(true);
@@ -264,7 +363,7 @@ export function App() {
         })),
       });
     },
-    [postMessage]
+    [postMessage, unfixableViolations]
   );
 
   // Unbind a variable from a node (for orphaned variables)
@@ -417,7 +516,8 @@ export function App() {
           v.suggestedToken || '',
         ]);
 
-        content = [headers, ...rows].map(row => row.map(cell => '"' + cell.replace(/"/g, '""') + '"').join(',')).join('\n');
+        const csvRows = [headers, ...rows].map(row => row.map(cell => '"' + cell.replace(/"/g, '""') + '"').join(','));
+        content = csvRows.join(decodeURIComponent('%0A'));
         filename = 'lint-results.csv';
         mimeType = 'text/csv';
       }
@@ -442,8 +542,19 @@ export function App() {
     postMessage({ type: 'UPDATE_CONFIG', config: newConfig });
   }, [postMessage]);
 
-  // Count fixable violations
-  const fixableCount = results?.violations.filter(v => v.suggestedToken && !fixedViolations.has(v.nodeId + ':' + v.property)).length || 0;
+  // Change token source
+  const handleTokenSourceChange = useCallback((source: TokenSource) => {
+    setTokenSource(source);
+    postMessage({ type: 'SAVE_TOKEN_SOURCE', source });
+  }, [postMessage]);
+
+  // Count fixable violations (exclude unfixable — those that already failed to fix)
+  const fixableCount = results?.violations.filter(v =>
+    v.suggestedToken &&
+    v.suggestionConfidence !== 'approximate' &&
+    !fixedViolations.has(v.nodeId + ':' + v.property) &&
+    !unfixableViolations.has(v.nodeId + ':' + v.property)
+  ).length || 0;
 
   return (
     <div className="app">
@@ -458,6 +569,13 @@ export function App() {
         onViewChange={setView}
       />
 
+      <TokenSourceSelector
+        source={tokenSource}
+        onSourceChange={handleTokenSourceChange}
+        isLoading={isLoadingTokens}
+        tokenCount={tokenCount}
+      />
+
       {isScanning && <ProgressBar processed={progress.processed} total={progress.total} />}
 
       {view === 'results' && (
@@ -469,6 +587,7 @@ export function App() {
               <FixStatusBar
                 violations={results.violations}
                 fixedViolations={fixedViolations}
+                unfixableViolations={unfixableViolations}
                 isFixing={isFixing}
                 onFixAll={() => handleBulkFix(results.violations)}
                 onAutoFixPathMismatches={handleAutoFixPathMismatches}
@@ -499,6 +618,7 @@ export function App() {
             onApplyStyle={handleApplyStyle}
             onIgnore={handleIgnore}
             fixedViolations={fixedViolations}
+            unfixableViolations={unfixableViolations}
             ignoredViolations={ignoredViolations}
             isFixing={isFixing}
             fixableCount={fixableCount}
@@ -507,6 +627,8 @@ export function App() {
       )}
 
       {view === 'config' && <ConfigPanel config={config} onChange={handleConfigChange} />}
+
+      {view === 'sync' && <SyncPanel tokenCount={tokenCount} />}
     </div>
   );
 }

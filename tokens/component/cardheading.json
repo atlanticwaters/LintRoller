@@ -1,0 +1,38 @@
+{
+  "CardHeading": {
+    "size": {
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-14}"
+      }
+    },
+    "text": {
+      "Default": {
+        "$type": "color",
+        "$value": "{system.text.on-surface-color.primary}"
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-0}"
+        }
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.none}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.text.on-surface-color.primary}"
+        }
+      }
+    }
+  }
+}

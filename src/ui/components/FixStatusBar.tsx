@@ -10,6 +10,7 @@ import type { LintViolation } from '../../shared/types';
 interface FixStatusBarProps {
   violations: LintViolation[];
   fixedViolations: Set<string>;
+  unfixableViolations: Set<string>;
   isFixing: boolean;
   onFixAll: () => void;
   onAutoFixPathMismatches: () => void;
@@ -22,6 +23,7 @@ interface FixStatusBarProps {
 export function FixStatusBar({
   violations,
   fixedViolations,
+  unfixableViolations,
   isFixing,
   onFixAll,
   onAutoFixPathMismatches,
@@ -33,17 +35,24 @@ export function FixStatusBar({
   // Calculate counts
   const total = violations.length;
 
-  // Fixable = has a suggested token
-  const fixable = violations.filter(v => v.suggestedToken);
+  // Fixable = has a suggested token with non-approximate confidence
+  const fixable = violations.filter(v => v.suggestedToken && v.suggestionConfidence !== 'approximate');
 
   // Already fixed in this session
   const fixed = fixable.filter(v => fixedViolations.has(v.nodeId + ':' + v.property));
 
-  // Remaining fixable (has suggestion but not yet fixed)
-  const remaining = fixable.filter(v => !fixedViolations.has(v.nodeId + ':' + v.property));
+  // Remaining fixable (has suggestion, not yet fixed, and not proven unfixable)
+  const remaining = fixable.filter(v =>
+    !fixedViolations.has(v.nodeId + ':' + v.property) &&
+    !unfixableViolations.has(v.nodeId + ':' + v.property)
+  );
 
-  // Unfixable = no suggested token
-  const unfixable = violations.filter(v => !v.suggestedToken);
+  // Manual = no suggested token, approximate confidence, OR proven unfixable after a fix attempt
+  const manual = violations.filter(v =>
+    !v.suggestedToken ||
+    v.suggestionConfidence === 'approximate' ||
+    unfixableViolations.has(v.nodeId + ':' + v.property)
+  );
 
   // Path mismatches (auto-fixable)
   const pathMismatches = violations.filter(
@@ -54,7 +63,7 @@ export function FixStatusBar({
   const fixedPercent = total > 0 ? (fixed.length / total) * 100 : 0;
   const pathMismatchPercent = total > 0 ? (pathMismatches.length / total) * 100 : 0;
   const remainingPercent = total > 0 ? ((remaining.length - pathMismatches.length) / total) * 100 : 0;
-  const unfixablePercent = total > 0 ? (unfixable.length / total) * 100 : 0;
+  const manualPercent = total > 0 ? (manual.length / total) * 100 : 0;
 
   if (total === 0) {
     return null;
@@ -127,8 +136,8 @@ export function FixStatusBar({
         />
         <div
           className="fix-progress-segment unfixable"
-          style={{ width: unfixablePercent + '%' }}
-          title={unfixable.length + ' cannot be auto-fixed'}
+          style={{ width: manualPercent + '%' }}
+          title={manual.length + ' cannot be auto-fixed'}
         />
       </div>
 
@@ -152,7 +161,7 @@ export function FixStatusBar({
         </div>
         <div className="fix-legend-item">
           <span className="fix-legend-dot unfixable" />
-          <span className="fix-legend-count">{unfixable.length}</span>
+          <span className="fix-legend-count">{manual.length}</span>
           <span className="fix-legend-label">Manual</span>
         </div>
       </div>

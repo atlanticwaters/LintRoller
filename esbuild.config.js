@@ -99,9 +99,10 @@ function buildUIHtml() {
     js = fs.readFileSync('dist/ui.js', 'utf-8');
   }
 
+  // Use function replacements to avoid $& pattern interpretation in minified JS
   const finalHtml = htmlTemplate
-    .replace('<!-- INLINE_CSS -->', css ? `<style>${css}</style>` : '')
-    .replace('<!-- INLINE_JS -->', js ? `<script>${js}</script>` : '');
+    .replace('<!-- INLINE_CSS -->', () => css ? `<style>${css}</style>` : '')
+    .replace('<!-- INLINE_JS -->', () => js ? `<script>${js}</script>` : '');
 
   fs.writeFileSync('dist/ui.html', finalHtml);
   console.log('Built dist/ui.html');

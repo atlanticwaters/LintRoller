@@ -1,0 +1,18 @@
+{
+  "color": {
+    "neutrals": {
+      "black": {
+        "$type": "color",
+        "$value": "#000000"
+      },
+      "white": {
+        "$type": "color",
+        "$value": "#ffffff"
+      },
+      "transparent": {
+        "$type": "color",
+        "$value": "#00000000"
+      }
+    }
+  }
+}

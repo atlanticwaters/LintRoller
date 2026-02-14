@@ -1,0 +1,206 @@
+{
+  "Badge": {
+    "size": {
+      "Outline": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.2xs}"
+        }
+      },
+      "Filled-Strong": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.2xs}"
+        }
+      },
+      "Filled-Subtle": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.2xs}"
+        }
+      }
+    },
+    "text": {
+      "Outline": {
+        "Default": {
+          "$type": "color",
+          "$value": "{color.brand.brand-025}"
+        }
+      },
+      "Filled-Strong": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.text.on-surface-color.inverse}"
+        }
+      },
+      "Filled-Subtle": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.text.input-color.transparent-10.active}"
+        }
+      }
+    },
+    "color": {
+      "Outline": {
+        "Default": {
+          "$type": "color",
+          "$value": "{color.moonlight.moonlight-500}"
+        }
+      }
+    },
+    "border": {
+      "stroke": {
+        "Outline": {
+          "Default": {
+            "$type": "color",
+            "$value": "{system.border.accent-color.brand}"
+          }
+        }
+      },
+      "Outline": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.border.accent-color.brand}"
+        }
+      }
+    },
+    "radius": {
+      "corner": {
+        "Outline": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.xl}"
+          }
+        },
+        "Filled-Strong": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.xl}"
+          }
+        },
+        "Filled-Subtle": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.border.radius.xl}"
+          }
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Outline": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.4xs}"
+          }
+        },
+        "Filled-Strong": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.4xs}"
+          }
+        },
+        "Filled-Subtle": {
+          "Default": {
+            "$type": "number",
+            "$value": "{system.dimension.gap.4xs}"
+          }
+        }
+      },
+      "padding": {
+        "Outline": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          }
+        },
+        "Filled-Strong": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          }
+        },
+        "Filled-Subtle": {
+          "Default": {
+            "$type": "number",
+            "$value": "{spacing.spacing-0}"
+          }
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Outline": {
+          "Default": {
+            "$type": "color",
+            "$value": "{color.brand.brand-025}"
+          }
+        },
+        "Filled-Strong": {
+          "Default": {
+            "$type": "color",
+            "$value": "{system.text.on-surface-color.inverse}"
+          }
+        },
+        "Filled-Subtle": {
+          "Default": {
+            "$type": "color",
+            "$value": "{component.text.input-color.transparent-10.active}"
+          }
+        }
+      },
+      "Filled-Strong": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.background.accent-color.brand-accent-2}"
+        }
+      },
+      "Filled-Subtle": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.background.accent-color.brand-accent-1}"
+        }
+      }
+    },
+    "font-weight": {
+      "Outline": {
+        "Default": {
+          "$type": "string",
+          "$value": "{font.font-weight.body.bold}"
+        }
+      },
+      "Filled-Strong": {
+        "Default": {
+          "$type": "string",
+          "$value": "{font.font-weight.body.bold}"
+        }
+      },
+      "Filled-Subtle": {
+        "Default": {
+          "$type": "string",
+          "$value": "{font.font-weight.body.bold}"
+        }
+      }
+    },
+    "border-width": {
+      "Outline": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.width.xs}"
+        }
+      },
+      "Filled-Strong": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.width.xs}"
+        }
+      },
+      "Filled-Subtle": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.width.xs}"
+        }
+      }
+    }
+  }
+}

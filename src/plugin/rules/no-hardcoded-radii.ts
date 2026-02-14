@@ -115,6 +115,9 @@ export class NoHardcodedRadiiRule extends LintRule {
       );
       violation.suggestionConfidence = suggestionConfidence;
       violation.alternativeTokens = alternativeTokens;
+      if (suggestionConfidence === 'approximate') {
+        violation.canIgnore = true;
+      }
       violations.push(violation);
     }
 

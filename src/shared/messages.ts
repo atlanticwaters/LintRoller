@@ -2,7 +2,7 @@
  * Message types for Plugin <-> UI communication
  */
 
-import type { LintConfig, LintResults, ScanScope } from './types';
+import type { LintConfig, LintResults, ScanScope, TokenSource } from './types';
 
 /**
  * Detailed information about a fix action for activity logging
@@ -122,6 +122,53 @@ export interface LoadIgnoredViolationsMessage {
   type: 'LOAD_IGNORED_VIOLATIONS';
 }
 
+/** Message to save token source preference to persistent storage */
+export interface SaveTokenSourceMessage {
+  type: 'SAVE_TOKEN_SOURCE';
+  source: TokenSource;
+}
+
+/** Message to request loading token source preference from storage */
+export interface LoadTokenSourceMessage {
+  type: 'LOAD_TOKEN_SOURCE';
+}
+
+// Sync-related messages
+
+/** Options for sync operation */
+export interface SyncOptionsMessage {
+  createNew?: boolean;
+  updateExisting?: boolean;
+  deleteOrphans?: boolean;
+  collectionNames?: {
+    core?: string;
+    semantic?: string;
+    component?: string;
+  };
+}
+
+/** Request sync status */
+export interface GetSyncStatusMessage {
+  type: 'GET_SYNC_STATUS';
+}
+
+/** Request sync diff analysis */
+export interface GetSyncDiffMessage {
+  type: 'GET_SYNC_DIFF';
+  options?: SyncOptionsMessage;
+}
+
+/** Start full sync operation */
+export interface StartSyncMessage {
+  type: 'START_SYNC';
+  options?: SyncOptionsMessage;
+}
+
+/** Reset variables to match token source */
+export interface ResetVariablesMessage {
+  type: 'RESET_VARIABLES';
+}
+
 export type UIToPluginMessage =
   | StartScanMessage
   | SelectNodeMessage
@@ -137,7 +184,13 @@ export type UIToPluginMessage =
   | ApplyTextStyleMessage
   | TokenFilesLoadedMessage
   | SaveIgnoredViolationsMessage
-  | LoadIgnoredViolationsMessage;
+  | LoadIgnoredViolationsMessage
+  | SaveTokenSourceMessage
+  | LoadTokenSourceMessage
+  | GetSyncStatusMessage
+  | GetSyncDiffMessage
+  | StartSyncMessage
+  | ResetVariablesMessage;
 
 // Messages from Plugin to UI
 
@@ -219,6 +272,65 @@ export interface IgnoredViolationsLoadedMessage {
   ignoredKeys: string[];
 }
 
+/** Message returning loaded token source preference from storage */
+export interface TokenSourceLoadedMessage {
+  type: 'TOKEN_SOURCE_LOADED';
+  source: TokenSource;
+}
+
+// Sync response messages
+
+/** Sync status response */
+export interface SyncStatusMessage {
+  type: 'SYNC_STATUS';
+  totalTokens: number;
+  totalVariables: number;
+  collections: Array<{
+    name: string;
+    layer: string;
+    variableCount: number;
+    modeCount: number;
+  }>;
+  syncedPercentage: number;
+}
+
+/** Sync diff analysis response */
+export interface SyncDiffMessage {
+  type: 'SYNC_DIFF';
+  toCreate: Array<{ path: string; layer: string; value: string | number }>;
+  toUpdate: Array<{ path: string; layer: string; oldValue: string | number; newValue: string | number }>;
+  toDelete: Array<{ path: string; layer: string; variableId: string }>;
+  unchanged: number;
+}
+
+/** Sync progress update */
+export interface SyncProgressMessage {
+  type: 'SYNC_PROGRESS';
+  phase: 'analyzing' | 'creating' | 'updating' | 'deleting' | 'complete';
+  current: number;
+  total: number;
+  message: string;
+}
+
+/** Sync complete response */
+export interface SyncCompleteMessage {
+  type: 'SYNC_COMPLETE';
+  success: boolean;
+  created: number;
+  updated: number;
+  deleted: number;
+  skipped: number;
+  errors: string[];
+  collections: Array<{
+    collectionId: string;
+    collectionName: string;
+    layer: 'core' | 'semantic' | 'component';
+    variablesCreated: number;
+    variablesUpdated: number;
+    variablesDeleted: number;
+  }>;
+}
+
 export type PluginToUIMessage =
   | ScanStartedMessage
   | ScanProgressMessage
@@ -230,4 +342,9 @@ export type PluginToUIMessage =
   | FixProgressMessage
   | BulkFixCompleteMessage
   | BulkDetachCompleteMessage
-  | IgnoredViolationsLoadedMessage;
+  | IgnoredViolationsLoadedMessage
+  | TokenSourceLoadedMessage
+  | SyncStatusMessage
+  | SyncDiffMessage
+  | SyncProgressMessage
+  | SyncCompleteMessage;

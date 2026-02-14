@@ -20,8 +20,8 @@ const CLOSE_TOLERANCE_PERCENT = 0.25; // 25%
 const CLOSE_TOLERANCE_ABSOLUTE = 4; // 4px
 
 /** Maximum tolerance to include in results (always show closest options) */
-const MAX_TOLERANCE_PERCENT = 1.0; // 100%
-const MAX_TOLERANCE_ABSOLUTE = 20; // 20px
+const MAX_TOLERANCE_PERCENT = 0.5; // 50%
+const MAX_TOLERANCE_ABSOLUTE = 8; // 8px
 
 /**
  * Find closest matching number tokens for a given value
@@ -77,19 +77,19 @@ export function findClosestNumbers(
       return a.difference - b.difference;
     }
 
-    // Prefer semantic tokens (system.*, component.*) over core tokens
-    const aIsSemantic = isSemanticTokenPath(a.tokenPath);
-    const bIsSemantic = isSemanticTokenPath(b.tokenPath);
-    if (aIsSemantic && !bIsSemantic) return -1;
-    if (!aIsSemantic && bIsSemantic) return 1;
-
-    // If same difference, prefer tokens with preferred keywords
+    // Prefer tokens with preferred keywords (right domain beats wrong domain)
     if (preferredKeywords.length > 0) {
       const aHasKeyword = hasPreferredKeyword(a.tokenPath, preferredKeywords);
       const bHasKeyword = hasPreferredKeyword(b.tokenPath, preferredKeywords);
       if (aHasKeyword && !bHasKeyword) return -1;
       if (!aHasKeyword && bHasKeyword) return 1;
     }
+
+    // Prefer semantic tokens (system.*, component.*) over core tokens
+    const aIsSemantic = isSemanticTokenPath(a.tokenPath);
+    const bIsSemantic = isSemanticTokenPath(b.tokenPath);
+    if (aIsSemantic && !bIsSemantic) return -1;
+    if (!aIsSemantic && bIsSemantic) return 1;
 
     return 0;
   });
@@ -165,3 +165,13 @@ export const RADIUS_KEYWORDS = ['radius', 'corner', 'round', 'border-radius'];
  * Typography-specific keywords for prioritizing typography tokens
  */
 export const TYPOGRAPHY_KEYWORDS = ['font', 'text', 'line', 'letter', 'size', 'typography'];
+
+/**
+ * Stroke width-specific keywords for prioritizing border width tokens
+ */
+export const STROKE_WIDTH_KEYWORDS = ['stroke', 'border-width', 'border.width', 'stroke-weight', 'stroke-width'];
+
+/**
+ * Sizing-specific keywords for prioritizing dimension/size tokens
+ */
+export const SIZING_KEYWORDS = ['size', 'dimension', 'width', 'height', 'min', 'max'];

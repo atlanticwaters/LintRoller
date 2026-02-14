@@ -1,0 +1,48 @@
+{
+  "elevation": {
+    "shadow-blur": {
+      "blur-radius-1": {
+        "$type": "number",
+        "$value": "4"
+      },
+      "blur-radius-2": {
+        "$type": "number",
+        "$value": "8"
+      },
+      "blur-radius-3": {
+        "$type": "number",
+        "$value": "12"
+      },
+      "blur-radius-4": {
+        "$type": "number",
+        "$value": "16"
+      },
+      "blur-radius-5": {
+        "$type": "number",
+        "$value": "24"
+      }
+    },
+    "shadow-color": {
+      "shadow-50": {
+        "$type": "color",
+        "$value": "#0000000d"
+      },
+      "shadow-100": {
+        "$type": "color",
+        "$value": "#0000001a"
+      },
+      "shadow-200": {
+        "$type": "color",
+        "$value": "#0000001f"
+      },
+      "shadow-300": {
+        "$type": "color",
+        "$value": "#0000002e"
+      },
+      "shadow-500": {
+        "$type": "color",
+        "$value": "#0000003d"
+      }
+    }
+  }
+}

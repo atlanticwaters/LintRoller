@@ -1,0 +1,62 @@
+{
+  "Radio-Button": {
+    "size": {
+      "Default": {
+        "$type": "number",
+        "$value": "{system.dimension.size.xs}"
+      }
+    },
+    "border": {
+      "stroke": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.border.selector-color.filled.selected}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{component.border.selector-color.filled.selected}"
+      }
+    },
+    "radius": {
+      "corner": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.radius.full}"
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.size.sm}"
+        }
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.4xs}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{component.background.selector-color.filled.switch-handle.selected}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{component.background.selector-color.filled.selected}"
+      }
+    },
+    "border-width": {
+      "Default": {
+        "$type": "number",
+        "$value": "{system.border.width.sm}"
+      }
+    }
+  }
+}

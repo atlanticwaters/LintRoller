@@ -1,0 +1,46 @@
+{
+  "tileMedia": {
+    "size": {
+      "Default": {
+        "$type": "number",
+        "$value": "{border.width.border-width-10}"
+      }
+    },
+    "border": {
+      "stroke": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.background.surface-color.inverse}"
+        }
+      }
+    },
+    "radius": {
+      "corner": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.border.radius.sm}"
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{border.width.border-width-10}"
+        }
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{spacing.spacing-0}"
+        }
+      }
+    },
+    "background": {
+      "Default": {
+        "$type": "color",
+        "$value": "{system.background.surface-color.inverse}"
+      }
+    }
+  }
+}

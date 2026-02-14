@@ -1,0 +1,74 @@
+{
+  "font": {
+    "font-size": {
+      "h1": {
+        "$type": "number",
+        "$value": "32"
+      },
+      "h2": {
+        "$type": "number",
+        "$value": "28"
+      },
+      "h3": {
+        "$type": "number",
+        "$value": "24"
+      },
+      "h4": {
+        "$type": "number",
+        "$value": "20"
+      },
+      "h5": {
+        "$type": "number",
+        "$value": "18"
+      },
+      "h6": {
+        "$type": "number",
+        "$value": "16"
+      },
+      "hero-1": {
+        "$type": "number",
+        "$value": "64"
+      },
+      "hero-2": {
+        "$type": "number",
+        "$value": "56"
+      },
+      "hero-3": {
+        "$type": "number",
+        "$value": "48"
+      },
+      "hero-4": {
+        "$type": "number",
+        "$value": "40"
+      },
+      "hero-5": {
+        "$type": "number",
+        "$value": "36"
+      },
+      "body-lg": {
+        "$type": "number",
+        "$value": "18"
+      },
+      "body-md": {
+        "$type": "number",
+        "$value": "16"
+      },
+      "body-sm": {
+        "$type": "number",
+        "$value": "14"
+      },
+      "body-xl": {
+        "$type": "number",
+        "$value": "20"
+      },
+      "body-xs": {
+        "$type": "number",
+        "$value": "12"
+      },
+      "caption": {
+        "$type": "number",
+        "$value": "11"
+      }
+    }
+  }
+}

@@ -1,0 +1,206 @@
+{
+  "spacing": {
+    "spacing-0": {
+      "$type": "number",
+      "$value": "0",
+      "$description": "0"
+    },
+    "spacing-1": {
+      "$type": "number",
+      "$value": "1",
+      "$description": "1"
+    },
+    "spacing-2": {
+      "$type": "number",
+      "$value": "2",
+      "$description": "2"
+    },
+    "spacing-3": {
+      "$type": "number",
+      "$value": "4",
+      "$description": "4"
+    },
+    "spacing-4": {
+      "$type": "number",
+      "$value": "6"
+    },
+    "spacing-5": {
+      "$type": "number",
+      "$value": "8",
+      "$description": "8"
+    },
+    "spacing-6": {
+      "$type": "number",
+      "$value": "12",
+      "$description": "12"
+    },
+    "spacing-7": {
+      "$type": "number",
+      "$value": "16",
+      "$description": "16"
+    },
+    "spacing-8": {
+      "$type": "number",
+      "$value": "20",
+      "$description": "20"
+    },
+    "spacing-9": {
+      "$type": "number",
+      "$value": "24",
+      "$description": "24"
+    },
+    "spacing-10": {
+      "$type": "number",
+      "$value": "28",
+      "$description": "28"
+    },
+    "spacing-11": {
+      "$type": "number",
+      "$value": "32",
+      "$description": "32"
+    },
+    "spacing-12": {
+      "$type": "number",
+      "$value": "36",
+      "$description": "36"
+    },
+    "spacing-13": {
+      "$type": "number",
+      "$value": "40",
+      "$description": "40"
+    },
+    "spacing-14": {
+      "$type": "number",
+      "$value": "44",
+      "$description": "44"
+    },
+    "spacing-15": {
+      "$type": "number",
+      "$value": "48",
+      "$description": "48"
+    },
+    "spacing-16": {
+      "$type": "number",
+      "$value": "52",
+      "$description": "52"
+    },
+    "spacing-17": {
+      "$type": "number",
+      "$value": "56",
+      "$description": "56"
+    },
+    "spacing-18": {
+      "$type": "number",
+      "$value": "60",
+      "$description": "60"
+    },
+    "spacing-19": {
+      "$type": "number",
+      "$value": "64",
+      "$description": "64"
+    },
+    "spacing-20": {
+      "$type": "number",
+      "$value": "68",
+      "$description": "68"
+    },
+    "spacing-21": {
+      "$type": "number",
+      "$value": "72",
+      "$description": "72"
+    },
+    "spacing-22": {
+      "$type": "number",
+      "$value": "76",
+      "$description": "76"
+    },
+    "spacing-23": {
+      "$type": "number",
+      "$value": "80",
+      "$description": "80"
+    },
+    "spacing-24": {
+      "$type": "number",
+      "$value": "84",
+      "$description": "84"
+    },
+    "spacing-25": {
+      "$type": "number",
+      "$value": "88",
+      "$description": "88"
+    },
+    "spacing-26": {
+      "$type": "number",
+      "$value": "92",
+      "$description": "92"
+    },
+    "spacing-27": {
+      "$type": "number",
+      "$value": "96",
+      "$description": "96"
+    },
+    "spacing-28": {
+      "$type": "number",
+      "$value": "100",
+      "$description": "100"
+    },
+    "spacing-29": {
+      "$type": "number",
+      "$value": "104",
+      "$description": "104"
+    },
+    "spacing-30": {
+      "$type": "number",
+      "$value": "108",
+      "$description": "108"
+    },
+    "spacing-31": {
+      "$type": "number",
+      "$value": "112",
+      "$description": "112"
+    },
+    "spacing-32": {
+      "$type": "number",
+      "$value": "116",
+      "$description": "116"
+    },
+    "spacing-33": {
+      "$type": "number",
+      "$value": "120",
+      "$description": "120"
+    },
+    "spacing-34": {
+      "$type": "number",
+      "$value": "124",
+      "$description": "124"
+    },
+    "spacing-35": {
+      "$type": "number",
+      "$value": "128",
+      "$description": "128"
+    },
+    "spacing-36": {
+      "$type": "number",
+      "$value": "132",
+      "$description": "132"
+    },
+    "spacing-37": {
+      "$type": "number",
+      "$value": "136",
+      "$description": "136"
+    },
+    "spacing-38": {
+      "$type": "number",
+      "$value": "140",
+      "$description": "140"
+    },
+    "spacing-39": {
+      "$type": "number",
+      "$value": "144"
+    },
+    "spacing-10px": {
+      "$type": "number",
+      "$value": "10"
+    }
+  }
+}

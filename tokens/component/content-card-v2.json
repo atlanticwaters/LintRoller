@@ -1,0 +1,72 @@
+{
+  "Content-Card-v2": {
+    "size": {
+      "Default": {
+        "$type": "number",
+        "$value": "{system.dimension.size.sm}"
+      }
+    },
+    "border": {
+      "stroke": {
+        "Default": {
+          "$type": "number",
+          "$value": "{border.width.border-width-0}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{system.border.container-color.primary}"
+      }
+    },
+    "radius": {
+      "corner": {
+        "Default": {
+          "$type": "number",
+          "$value": "{border.width.border-width-8}"
+        }
+      }
+    },
+    "spacing": {
+      "gap": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.sm}"
+        }
+      },
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-10}"
+      },
+      "padding": {
+        "Default": {
+          "$type": "number",
+          "$value": "{system.dimension.gap.none}"
+        }
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.background.container-color.white}"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": "{system.background.container-color.white}"
+      }
+    },
+    "font-weight": {
+      "Default": {
+        "$type": "fontWeights",
+        "$value": "{font.font-weight.body.bold}"
+      }
+    },
+    "border-width": {
+      "Default": {
+        "$type": "number",
+        "$value": "{system.border.width.sm}"
+      }
+    }
+  }
+}

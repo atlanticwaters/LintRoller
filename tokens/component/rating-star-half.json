@@ -1,0 +1,24 @@
+{
+  "Rating-Star-Half": {
+    "icon": {
+      "Default": {
+        "$type": "color",
+        "$value": "{system.icon.on-surface-color.inactive}"
+      }
+    },
+    "spacing": {
+      "Default": {
+        "$type": "number",
+        "$value": "{spacing.spacing-4}"
+      }
+    },
+    "background": {
+      "fill": {
+        "Default": {
+          "$type": "color",
+          "$value": "{system.icon.on-surface-color.inactive}"
+        }
+      }
+    }
+  }
+}
