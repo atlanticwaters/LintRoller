@@ -132,6 +132,16 @@ export function ResultsList({
     );
   };
 
+  // Get rebindable violations for orphaned/core variable groups (relaxed: any confidence)
+  const getRebindableViolations = (violations: LintViolation[]) => {
+    return violations.filter(v =>
+      v.canUnbind &&
+      v.suggestedToken &&
+      !isDismissed(v) &&
+      !isUnfixable(v)
+    );
+  };
+
   // Get detachable violations for a group (only from remaining)
   const getDetachableViolations = (violations: LintViolation[]) => {
     return violations.filter(v => v.canDetach && !isDismissed(v));
@@ -233,6 +243,8 @@ export function ResultsList({
           const fixableInGroup = getFixableViolations(allViolations);
           const detachableInGroup = getDetachableViolations(allViolations);
           const isUnknownStylesGroup = key === 'no-unknown-styles';
+          const isRebindGroup = key === 'no-orphaned-variables' || key === 'prefer-semantic-variables';
+          const bulkFixViolations = isRebindGroup ? getRebindableViolations(allViolations) : fixableInGroup;
 
           return (
             <div key={key} className="results-group">
@@ -242,17 +254,17 @@ export function ResultsList({
                   {groupName}
                 </span>
                 <div className="results-group-actions">
-                  {fixableInGroup.length > 0 && (
+                  {bulkFixViolations.length > 0 && (
                     <button
                       className="btn btn-fix-group"
                       onClick={e => {
                         e.stopPropagation();
-                        onBulkFix(fixableInGroup);
+                        onBulkFix(bulkFixViolations);
                       }}
                       disabled={isFixing}
-                      title={'Fix ' + fixableInGroup.length + ' issues in this group'}
+                      title={(isRebindGroup ? 'Rebind ' : 'Fix ') + bulkFixViolations.length + ' issues in this group'}
                     >
-                      Fix ({fixableInGroup.length})
+                      {isRebindGroup ? 'Rebind All' : 'Fix'} ({bulkFixViolations.length})
                     </button>
                   )}
                   {isUnknownStylesGroup && detachableInGroup.length > 0 && (

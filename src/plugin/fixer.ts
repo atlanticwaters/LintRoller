@@ -173,6 +173,63 @@ function isComponentVar(normalizedVarName: string, collName: string): boolean {
   return normalizedVarName.startsWith('component/') || collName.includes('component');
 }
 
+// ─── Number Category System ──────────────────────────────────────────────
+
+/**
+ * Category of a numeric property / variable.
+ * Used to prevent cross-type matching (e.g., padding → typography variable).
+ */
+type NumberCategory = 'spacing' | 'radii' | 'stroke-weight' | 'sizing' | 'typography' | 'unknown';
+
+/** Map a Figma node property to its number category */
+function getPropertyCategory(property: string): NumberCategory {
+  if (['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+       'itemSpacing', 'counterAxisSpacing'].includes(property)) return 'spacing';
+  if (['cornerRadius', 'topLeftRadius', 'topRightRadius',
+       'bottomLeftRadius', 'bottomRightRadius'].includes(property)) return 'radii';
+  if (['strokeWeight', 'strokeTopWeight', 'strokeRightWeight',
+       'strokeBottomWeight', 'strokeLeftWeight'].includes(property)) return 'stroke-weight';
+  if (['width', 'height', 'minWidth', 'maxWidth',
+       'minHeight', 'maxHeight'].includes(property)) return 'sizing';
+  if (['fontSize', 'lineHeight', 'letterSpacing', 'paragraphSpacing'].includes(property)) return 'typography';
+  return 'unknown';
+}
+
+/**
+ * Classify a Figma variable into a number category by inspecting its name.
+ * Checks most-specific patterns first to avoid false matches
+ * (e.g., 'font-size' contains 'size' but should be typography, not sizing).
+ */
+function getVariableCategory(normalizedVarName: string): NumberCategory {
+  const lower = normalizedVarName.toLowerCase();
+
+  // Typography (check before sizing — 'font-size' contains 'size')
+  if (lower.includes('typography') || lower.includes('font-size') ||
+      lower.includes('line-height') || lower.includes('letter-spacing') ||
+      lower.includes('paragraph')) return 'typography';
+
+  // Stroke weight (check before general 'stroke' or 'border')
+  if (lower.includes('stroke-weight') || lower.includes('stroke-width') ||
+      lower.includes('border-width')) return 'stroke-weight';
+
+  // Border radius (check before general 'border')
+  if (lower.includes('radius') || lower.includes('radii') ||
+      lower.includes('corner')) return 'radii';
+
+  // Spacing
+  if (lower.includes('spacing') || lower.includes('space') ||
+      lower.includes('gap') || lower.includes('padding') ||
+      lower.includes('margin') || lower.includes('inset')) return 'spacing';
+
+  // Sizing (least specific)
+  if (lower.includes('sizing') || lower.includes('dimension')) return 'sizing';
+  // Match 'size' only as a standalone segment to avoid matching 'font-size'
+  const segments = lower.split('/');
+  if (segments.some(seg => seg === 'size' || seg.startsWith('size-'))) return 'sizing';
+
+  return 'unknown';
+}
+
 // ─── Index Building ──────────────────────────────────────────────────────
 
 async function buildVariableIndex(): Promise<VariableIndex> {
@@ -421,19 +478,43 @@ async function findAndImportLibraryVariable(
 const ICON_NODE_TYPES = ['VECTOR', 'BOOLEAN_OPERATION', 'STAR', 'LINE', 'ELLIPSE', 'POLYGON'];
 
 function getContextKeywords(property: string, nodeType: string): string[] {
-  if (property.includes('stroke')) return ['border'];
-  if (property.includes('fill')) {
+  // --- Color properties ---
+  if (property.startsWith('strokes[')) return ['border'];
+  if (property.startsWith('fills[')) {
     if (nodeType === 'TEXT') return ['text'];
     if (ICON_NODE_TYPES.includes(nodeType)) return ['icon'];
     return ['background'];
   }
+
+  // --- Number properties ---
+  if (['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+       'itemSpacing', 'counterAxisSpacing'].includes(property)) {
+    return ['spacing', 'space', 'gap', 'padding'];
+  }
+  if (['cornerRadius', 'topLeftRadius', 'topRightRadius',
+       'bottomLeftRadius', 'bottomRightRadius'].includes(property)) {
+    return ['radius', 'border-radius', 'corner'];
+  }
+  if (['strokeWeight', 'strokeTopWeight', 'strokeRightWeight',
+       'strokeBottomWeight', 'strokeLeftWeight'].includes(property)) {
+    return ['stroke', 'border-width', 'stroke-width'];
+  }
+  if (['width', 'height', 'minWidth', 'maxWidth',
+       'minHeight', 'maxHeight'].includes(property)) {
+    return ['sizing', 'size'];
+  }
+  if (['fontSize', 'lineHeight', 'letterSpacing', 'paragraphSpacing'].includes(property)) {
+    return ['typography', 'font'];
+  }
+
   return [];
 }
 
 function contextScore(normalizedVarName: string, keywords: string[]): number {
   if (keywords.length === 0) return 0;
-  const segments = normalizedVarName.split('/');
-  return keywords.some(k => segments.includes(k)) ? 10 : 0;
+  const lower = normalizedVarName.toLowerCase();
+  // Substring match on full path — handles compound segments like 'border-radius'
+  return keywords.some(k => lower.includes(k.toLowerCase())) ? 10 : 0;
 }
 
 // ─── Read Current Node Value ─────────────────────────────────────────────
@@ -636,12 +717,25 @@ async function findVariableForToken(
   }
 
   if (currentValue && currentValue.type === 'number') {
+    const propCategory = context ? getPropertyCategory(context.property) : 'unknown';
     const candidates = index.byResolvedNumber.get(currentValue.value);
     if (candidates && candidates.length > 0) {
       const nonComponent = candidates.filter(v => typeMatches(v, expectedType) && excludeComponent(v));
       if (nonComponent.length > 0) {
-        const best = pickBestVariable(nonComponent, index, keywords, tokenPath, tokens);
-        console.log('[Fixer] Number value match (' + nonComponent.length + ' candidates, component excluded): ' + best.name);
+        // Hard category filter: only keep variables whose category matches the property
+        let pool = nonComponent;
+        if (propCategory !== 'unknown') {
+          const sameCategory = nonComponent.filter(v => {
+            const varCat = getVariableCategory(normalizePath(v.name));
+            return varCat === propCategory || varCat === 'unknown';
+          });
+          if (sameCategory.length > 0) {
+            pool = sameCategory;
+            console.log('[Fixer] Category filter (' + propCategory + '): ' + nonComponent.length + ' -> ' + sameCategory.length + ' candidates');
+          }
+        }
+        const best = pickBestVariable(pool, index, keywords, tokenPath, tokens);
+        console.log('[Fixer] Number value match (' + pool.length + ' candidates, category=' + propCategory + '): ' + best.name);
         return best;
       }
       // Fallback: if no non-component candidates, use all typed candidates
@@ -663,7 +757,15 @@ async function findVariableForToken(
       const diff = Math.abs(numVal - currentValue.value);
       const pctDiff = currentValue.value !== 0 ? diff / Math.abs(currentValue.value) : diff;
       if (diff > 0 && (diff <= 4 || pctDiff <= 0.25)) {
-        const typed = vars.filter(v => typeMatches(v, expectedType) && excludeComponent(v));
+        let typed = vars.filter(v => typeMatches(v, expectedType) && excludeComponent(v));
+        // Category filter for approximate matches too
+        if (propCategory !== 'unknown' && typed.length > 0) {
+          const sameCat = typed.filter(v => {
+            const varCat = getVariableCategory(normalizePath(v.name));
+            return varCat === propCategory || varCat === 'unknown';
+          });
+          if (sameCat.length > 0) typed = sameCat;
+        }
         if (typed.length > 0) {
           const best = pickBestVariable(typed, index, keywords, tokenPath, tokens);
           // Score: prefer closer values, then higher context/name score

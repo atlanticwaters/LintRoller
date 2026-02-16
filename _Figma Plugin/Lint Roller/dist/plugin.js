@@ -3133,6 +3133,51 @@
   function isComponentVar(normalizedVarName, collName) {
     return normalizedVarName.startsWith("component/") || collName.includes("component");
   }
+  function getPropertyCategory(property) {
+    if ([
+      "paddingTop",
+      "paddingRight",
+      "paddingBottom",
+      "paddingLeft",
+      "itemSpacing",
+      "counterAxisSpacing"
+    ].includes(property)) return "spacing";
+    if ([
+      "cornerRadius",
+      "topLeftRadius",
+      "topRightRadius",
+      "bottomLeftRadius",
+      "bottomRightRadius"
+    ].includes(property)) return "radii";
+    if ([
+      "strokeWeight",
+      "strokeTopWeight",
+      "strokeRightWeight",
+      "strokeBottomWeight",
+      "strokeLeftWeight"
+    ].includes(property)) return "stroke-weight";
+    if ([
+      "width",
+      "height",
+      "minWidth",
+      "maxWidth",
+      "minHeight",
+      "maxHeight"
+    ].includes(property)) return "sizing";
+    if (["fontSize", "lineHeight", "letterSpacing", "paragraphSpacing"].includes(property)) return "typography";
+    return "unknown";
+  }
+  function getVariableCategory(normalizedVarName) {
+    const lower = normalizedVarName.toLowerCase();
+    if (lower.includes("typography") || lower.includes("font-size") || lower.includes("line-height") || lower.includes("letter-spacing") || lower.includes("paragraph")) return "typography";
+    if (lower.includes("stroke-weight") || lower.includes("stroke-width") || lower.includes("border-width")) return "stroke-weight";
+    if (lower.includes("radius") || lower.includes("radii") || lower.includes("corner")) return "radii";
+    if (lower.includes("spacing") || lower.includes("space") || lower.includes("gap") || lower.includes("padding") || lower.includes("margin") || lower.includes("inset")) return "spacing";
+    if (lower.includes("sizing") || lower.includes("dimension")) return "sizing";
+    const segments = lower.split("/");
+    if (segments.some((seg) => seg === "size" || seg.startsWith("size-"))) return "sizing";
+    return "unknown";
+  }
   async function buildVariableIndex() {
     const variables = await figma.variables.getLocalVariablesAsync();
     const collections = await figma.variables.getLocalVariableCollectionsAsync();
@@ -3316,18 +3361,59 @@
   }
   var ICON_NODE_TYPES2 = ["VECTOR", "BOOLEAN_OPERATION", "STAR", "LINE", "ELLIPSE", "POLYGON"];
   function getContextKeywords2(property, nodeType) {
-    if (property.includes("stroke")) return ["border"];
-    if (property.includes("fill")) {
+    if (property.startsWith("strokes[")) return ["border"];
+    if (property.startsWith("fills[")) {
       if (nodeType === "TEXT") return ["text"];
       if (ICON_NODE_TYPES2.includes(nodeType)) return ["icon"];
       return ["background"];
+    }
+    if ([
+      "paddingTop",
+      "paddingRight",
+      "paddingBottom",
+      "paddingLeft",
+      "itemSpacing",
+      "counterAxisSpacing"
+    ].includes(property)) {
+      return ["spacing", "space", "gap", "padding"];
+    }
+    if ([
+      "cornerRadius",
+      "topLeftRadius",
+      "topRightRadius",
+      "bottomLeftRadius",
+      "bottomRightRadius"
+    ].includes(property)) {
+      return ["radius", "border-radius", "corner"];
+    }
+    if ([
+      "strokeWeight",
+      "strokeTopWeight",
+      "strokeRightWeight",
+      "strokeBottomWeight",
+      "strokeLeftWeight"
+    ].includes(property)) {
+      return ["stroke", "border-width", "stroke-width"];
+    }
+    if ([
+      "width",
+      "height",
+      "minWidth",
+      "maxWidth",
+      "minHeight",
+      "maxHeight"
+    ].includes(property)) {
+      return ["sizing", "size"];
+    }
+    if (["fontSize", "lineHeight", "letterSpacing", "paragraphSpacing"].includes(property)) {
+      return ["typography", "font"];
     }
     return [];
   }
   function contextScore2(normalizedVarName, keywords) {
     if (keywords.length === 0) return 0;
-    const segments = normalizedVarName.split("/");
-    return keywords.some((k) => segments.includes(k)) ? 10 : 0;
+    const lower = normalizedVarName.toLowerCase();
+    return keywords.some((k) => lower.includes(k.toLowerCase())) ? 10 : 0;
   }
   function readCurrentValue(node, property) {
     var _a, _b, _c, _d;
@@ -3457,12 +3543,24 @@
       }
     }
     if (currentValue && currentValue.type === "number") {
+      const propCategory = context ? getPropertyCategory(context.property) : "unknown";
       const candidates = index.byResolvedNumber.get(currentValue.value);
       if (candidates && candidates.length > 0) {
         const nonComponent = candidates.filter((v) => typeMatches(v, expectedType) && excludeComponent(v));
         if (nonComponent.length > 0) {
-          const best = pickBestVariable(nonComponent, index, keywords, tokenPath, tokens);
-          console.log("[Fixer] Number value match (" + nonComponent.length + " candidates, component excluded): " + best.name);
+          let pool = nonComponent;
+          if (propCategory !== "unknown") {
+            const sameCategory = nonComponent.filter((v) => {
+              const varCat = getVariableCategory(normalizePath(v.name));
+              return varCat === propCategory || varCat === "unknown";
+            });
+            if (sameCategory.length > 0) {
+              pool = sameCategory;
+              console.log("[Fixer] Category filter (" + propCategory + "): " + nonComponent.length + " -> " + sameCategory.length + " candidates");
+            }
+          }
+          const best = pickBestVariable(pool, index, keywords, tokenPath, tokens);
+          console.log("[Fixer] Number value match (" + pool.length + " candidates, category=" + propCategory + "): " + best.name);
           return best;
         }
         const typed = candidates.filter((v) => typeMatches(v, expectedType));
@@ -3479,7 +3577,14 @@
         const diff = Math.abs(numVal - currentValue.value);
         const pctDiff = currentValue.value !== 0 ? diff / Math.abs(currentValue.value) : diff;
         if (diff > 0 && (diff <= 4 || pctDiff <= 0.25)) {
-          const typed = vars.filter((v) => typeMatches(v, expectedType) && excludeComponent(v));
+          let typed = vars.filter((v) => typeMatches(v, expectedType) && excludeComponent(v));
+          if (propCategory !== "unknown" && typed.length > 0) {
+            const sameCat = typed.filter((v) => {
+              const varCat = getVariableCategory(normalizePath(v.name));
+              return varCat === propCategory || varCat === "unknown";
+            });
+            if (sameCat.length > 0) typed = sameCat;
+          }
           if (typed.length > 0) {
             const best = pickBestVariable(typed, index, keywords, tokenPath, tokens);
             const nameScore = normalizePath(best.name) === normalizePath(tokenPath) ? 20 : pathEndsWith(normalizePath(tokenPath), normalizePath(best.name)) ? 15 : 0;

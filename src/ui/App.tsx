@@ -369,9 +369,13 @@ export function App() {
   const handleBulkFix = useCallback(
     (violations: LintViolation[]) => {
       const fixable = violations.filter(v =>
-        v.suggestedToken &&
-        v.suggestionConfidence !== 'approximate' &&
-        !unfixableViolations.has(v.nodeId + ':' + v.property)
+        !unfixableViolations.has(v.nodeId + ':' + v.property) &&
+        (
+          // Standard fixable: has token suggestion with good confidence
+          (v.suggestedToken && v.suggestionConfidence !== 'approximate') ||
+          // Rebindable: canUnbind violations (fixer uses Phase 0 + Phase 2 value matching)
+          v.canUnbind
+        )
       );
       if (fixable.length === 0) return;
 
@@ -381,7 +385,7 @@ export function App() {
         fixes: fixable.map(v => ({
           nodeId: v.nodeId,
           property: v.property,
-          tokenPath: v.suggestedToken!,
+          tokenPath: v.suggestedToken || String(v.currentValue),
           ruleId: v.ruleId,
         })),
       });
