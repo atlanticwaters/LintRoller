@@ -32,7 +32,7 @@ function getStatusIcon(status: 'success' | 'failed'): string {
 /**
  * Get action type label
  */
-function getActionTypeLabel(actionType: 'rebind' | 'unbind' | 'detach'): string {
+function getActionTypeLabel(actionType: 'rebind' | 'unbind' | 'detach' | 'apply-style' | 'ignore'): string {
   switch (actionType) {
     case 'rebind':
       return 'Rebound';
@@ -40,6 +40,10 @@ function getActionTypeLabel(actionType: 'rebind' | 'unbind' | 'detach'): string 
       return 'Unbound';
     case 'detach':
       return 'Detached';
+    case 'apply-style':
+      return 'Applied Style';
+    case 'ignore':
+      return 'Ignored';
     default:
       return 'Fixed';
   }

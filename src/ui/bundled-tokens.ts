@@ -70,6 +70,7 @@ import tok_core_position from '../../tokens/core/position.json';
 import tok_core_spacing from '../../tokens/core/spacing.json';
 import tok_core_colors from '../../tokens/core/colors.json';
 import tok_core_interaction from '../../tokens/core/interaction.json';
+import bundledThemes from '../../tokens/$themes.json';
 
 export const BUNDLED_TOKEN_FILES: TokenFileData[] = [
   { path: 'semantic/light', content: tok_semantic_light as unknown as Record<string, unknown> },
@@ -136,3 +137,5 @@ export const BUNDLED_TOKEN_FILES: TokenFileData[] = [
   { path: 'core/colors', content: tok_core_colors as unknown as Record<string, unknown> },
   { path: 'core/interaction', content: tok_core_interaction as unknown as Record<string, unknown> },
 ];
+
+export const BUNDLED_THEME_CONFIGS = bundledThemes as unknown as import('../shared/types').ThemeConfig[];

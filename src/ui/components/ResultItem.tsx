@@ -58,7 +58,7 @@ export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, on
   const [showAlternatives, setShowAlternatives] = useState(false);
   const hasAlternatives = violation.alternativeTokens && violation.alternativeTokens.length > 0;
   const isDismissed = isFixed || isIgnored;
-  const canFix = violation.suggestedToken && !isDismissed && !isUnfixable && violation.suggestionConfidence !== 'approximate';
+  const canFix = violation.suggestedToken && !isDismissed && !isUnfixable;
   const canUnbind = violation.canUnbind && !isDismissed;
   const canDetach = violation.canDetach && !isDismissed;
   const canApplyStyle = violation.canApplyTextStyle && violation.suggestedTextStyle && !isDismissed;
@@ -158,15 +158,17 @@ export function ResultItem({ violation, showNodeInfo, showRuleInfo, onSelect, on
       <div className="result-item-actions">
         {canFix && (
           <button
-            className="btn btn-fix"
+            className={'btn btn-fix' + (violation.suggestionConfidence === 'approximate' ? ' btn-approximate' : '')}
             onClick={e => {
               e.stopPropagation();
               onFix();
             }}
             disabled={isFixing}
-            title={canUnbind ? "Rebind to suggested token" : "Apply suggested fix"}
+            title={violation.suggestionConfidence === 'approximate'
+              ? "Apply approximate token (value will change slightly)"
+              : canUnbind ? "Rebind to suggested token" : "Apply suggested fix"}
           >
-            {canUnbind ? 'Rebind' : 'Fix'}
+            {canUnbind ? 'Rebind' : violation.suggestionConfidence === 'approximate' ? 'Use' : 'Fix'}
           </button>
         )}
         {canUnbind && (

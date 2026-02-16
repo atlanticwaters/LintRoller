@@ -117,9 +117,9 @@ export function ResultsList({
     return unfixableViolations.has(violation.nodeId + ':' + violation.property);
   };
 
-  // Get remaining (not dismissed) violations for a group
+  // Get remaining (not dismissed and not unfixable) violations for a group
   const getRemainingViolations = (violations: LintViolation[]) => {
-    return violations.filter(v => !isDismissed(v));
+    return violations.filter(v => !isDismissed(v) && !isUnfixable(v));
   };
 
   // Get fixable violations for a group (only from remaining, excluding unfixable)
@@ -166,9 +166,9 @@ export function ResultsList({
     );
   }
 
-  // Calculate total remaining violations
-  const totalRemaining = results.violations.filter(v => !isDismissed(v)).length;
-  const totalDismissed = fixedViolations.size + ignoredViolations.size;
+  // Calculate total remaining violations (exclude dismissed AND unfixable)
+  const totalRemaining = results.violations.filter(v => !isDismissed(v) && !isUnfixable(v)).length;
+  const totalDismissed = fixedViolations.size + ignoredViolations.size + unfixableViolations.size;
 
   // Show "all resolved" state if all violations are dismissed
   if (totalRemaining === 0 && totalDismissed > 0) {

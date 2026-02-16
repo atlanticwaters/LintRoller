@@ -8,29 +8,30 @@ import type { LintResults, Severity } from '../../shared/types';
 interface SummaryProps {
   results: LintResults;
   fixedViolations: Set<string>;
+  unfixableViolations: Set<string>;
   ignoredViolations: Set<string>;
 }
 
-export function Summary({ results, fixedViolations, ignoredViolations }: SummaryProps) {
+export function Summary({ results, fixedViolations, unfixableViolations, ignoredViolations }: SummaryProps) {
   const { metadata } = results;
 
-  // Compute remaining violations (excluding fixed and ignored)
+  // Compute remaining violations (excluding fixed, unfixable, and ignored)
   const remainingCounts = useMemo(() => {
     let total = 0;
     const bySeverity: Record<Severity, number> = { error: 0, warning: 0, info: 0 };
 
     for (const violation of results.violations) {
       const key = violation.nodeId + ':' + violation.property;
-      if (!fixedViolations.has(key) && !ignoredViolations.has(key)) {
+      if (!fixedViolations.has(key) && !unfixableViolations.has(key) && !ignoredViolations.has(key)) {
         total++;
         bySeverity[violation.severity]++;
       }
     }
 
     return { total, bySeverity };
-  }, [results.violations, fixedViolations, ignoredViolations]);
+  }, [results.violations, fixedViolations, unfixableViolations, ignoredViolations]);
 
-  const dismissedCount = fixedViolations.size + ignoredViolations.size;
+  const dismissedCount = fixedViolations.size + unfixableViolations.size + ignoredViolations.size;
 
   return (
     <div className="summary">

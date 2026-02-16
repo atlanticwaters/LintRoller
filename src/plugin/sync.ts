@@ -5,7 +5,8 @@
  * from DTCG token files.
  */
 
-import type { TokenCollection, ResolvedToken, ThemeConfig } from '../shared/types';
+import type { TokenCollection, ResolvedToken, ThemeConfig, TokenFileInput } from '../shared/types';
+import { TokenParser } from '../shared/token-parser';
 
 /**
  * Options for sync operation
@@ -112,16 +113,19 @@ function variableNameToTokenPath(variableName: string): string {
 /**
  * Get the Figma variable type for a token type
  */
-function getVariableType(token: ResolvedToken): VariableResolvedDataType {
+function getVariableType(token: ResolvedToken): VariableResolvedDataType | null {
   switch (token.type) {
     case 'color':
       return 'COLOR';
     case 'number':
     case 'dimension':
       return 'FLOAT';
+    case 'typography':
+    case 'text':
+    case 'shadow':
+      // These complex types cannot be represented as Figma variables
+      return null;
     default:
-      // For typography and other complex types, we'd need STRING
-      // but Figma doesn't support string variables for all use cases
       return 'FLOAT';
   }
 }
@@ -248,14 +252,60 @@ async function findVariableByName(
   return null;
 }
 
+/** Cache for per-theme parsed token collections */
+const _themeCollectionCache = new Map<string, TokenCollection>();
+
 /**
- * Get mode values for a token based on theme configuration
+ * Parse tokens for a specific theme, using only the token sets enabled in that theme.
+ * Results are cached per theme ID to avoid re-parsing during a single sync operation.
+ */
+function parseTokensForTheme(
+  theme: ThemeConfig,
+  rawFiles: TokenFileInput[]
+): TokenCollection | null {
+  if (_themeCollectionCache.has(theme.id)) {
+    return _themeCollectionCache.get(theme.id)!;
+  }
+
+  // Filter files to only those enabled in this theme
+  const enabledSets = Object.entries(theme.selectedTokenSets)
+    .filter(([, status]) => status === 'enabled' || status === 'source')
+    .map(([setPath]) => setPath);
+
+  if (enabledSets.length === 0) return null;
+
+  const themeFiles = rawFiles.filter(f =>
+    enabledSets.some(s => f.path === s || f.path === s + '.json' || f.path.replace(/\.json$/, '') === s)
+  );
+
+  if (themeFiles.length === 0) return null;
+
+  const parser = new TokenParser();
+  const collection = parser.parseTokenFiles(themeFiles);
+  _themeCollectionCache.set(theme.id, collection);
+  return collection;
+}
+
+/**
+ * Clear the per-theme parsed collection cache (call at start of sync)
+ */
+function clearThemeCollectionCache(): void {
+  _themeCollectionCache.clear();
+}
+
+/**
+ * Get mode values for a token based on theme configuration.
+ *
+ * For semantic tokens, re-resolves the token using each theme's enabled token sets,
+ * which produces different values per mode (e.g., light vs dark).
+ * For core/component tokens, uses the same base value across all modes.
  */
 function getModeValues(
   token: ResolvedToken,
   tokens: TokenCollection,
   themes: ThemeConfig[],
-  collection: VariableCollection
+  collection: VariableCollection,
+  rawFiles: TokenFileInput[]
 ): Map<string, VariableValue> {
   const modeValues = new Map<string, VariableValue>();
 
@@ -265,34 +315,41 @@ function getModeValues(
     return modeValues;
   }
 
-  // For semantic tokens, we need to look up the value for each theme/mode
   const layer = getTokenLayer(token);
 
-  if (layer === 'semantic') {
-    // Look for light and dark variants
+  if (layer === 'semantic' && themes.length > 0 && rawFiles.length > 0) {
+    // For semantic tokens, resolve per-mode using theme-specific token sets
     for (const mode of collection.modes) {
       const modeName = mode.name.toLowerCase();
 
-      // Try to find a mode-specific token
-      // Pattern: check if there's a token with same path in a mode-specific file
-      let modeValue = baseValue;
-
-      // Check themes to see which token sets are enabled for this mode
+      // Find the theme that matches this mode
       const matchingTheme = themes.find(t =>
+        t.name.toLowerCase() === modeName ||
         t.name.toLowerCase().includes(modeName) ||
         (t.group && t.group.toLowerCase().includes(modeName))
       );
 
       if (matchingTheme) {
-        // The theme tells us which token sets to use for this mode
-        // For now, use the base resolved value
-        // In a full implementation, we'd re-resolve based on theme's selectedTokenSets
+        // Parse tokens using only the sets enabled in this theme
+        const themeCollection = parseTokensForTheme(matchingTheme, rawFiles);
+        if (themeCollection) {
+          // Look up the same token path in the theme-specific collection
+          const themeToken = themeCollection.tokens.get(token.path);
+          if (themeToken) {
+            const themeValue = tokenValueToFigmaValue(themeToken);
+            if (themeValue !== null) {
+              modeValues.set(mode.modeId, themeValue);
+              continue;
+            }
+          }
+        }
       }
 
-      modeValues.set(mode.modeId, modeValue);
+      // Fallback to base value if no theme-specific value found
+      modeValues.set(mode.modeId, baseValue);
     }
   } else {
-    // Core and component tokens typically have the same value across modes
+    // Core and component tokens have the same value across modes
     for (const mode of collection.modes) {
       modeValues.set(mode.modeId, baseValue);
     }
@@ -441,7 +498,8 @@ export async function syncTokensToVariables(
   tokens: TokenCollection,
   themes: ThemeConfig[],
   options: Partial<SyncOptions> = {},
-  onProgress?: SyncProgressCallback
+  onProgress?: SyncProgressCallback,
+  rawFiles: TokenFileInput[] = []
 ): Promise<SyncResult> {
   const opts: SyncOptions = {
     createNew: options.createNew ?? true,
@@ -465,6 +523,9 @@ export async function syncTokensToVariables(
   };
 
   try {
+    // Clear cached theme collections from previous sync runs
+    clearThemeCollectionCache();
+
     // Determine modes from themes
     const modeNames: string[] = [];
     for (const theme of themes) {
@@ -541,6 +602,11 @@ export async function syncTokensToVariables(
 
         const variableType = getVariableType(token);
 
+        if (variableType === null) {
+          result.skipped++;
+          continue;
+        }
+
         onProgress?.({
           phase: existingVarNames.has(variableName) ? 'updating' : 'creating',
           current: totalProcessed,
@@ -556,7 +622,7 @@ export async function syncTokensToVariables(
             // Update existing variable
             if (opts.updateExisting) {
               // Get mode values
-              const modeValues = getModeValues(token, tokens, themes, collection);
+              const modeValues = getModeValues(token, tokens, themes, collection, rawFiles);
 
               // Update value for each mode
               for (const [modeId, value] of modeValues) {
@@ -585,7 +651,7 @@ export async function syncTokensToVariables(
             }
 
             // Get mode values and set them
-            const modeValues = getModeValues(token, tokens, themes, collection);
+            const modeValues = getModeValues(token, tokens, themes, collection, rawFiles);
             for (const [modeId, value] of modeValues) {
               variable.setValueForMode(modeId, value);
             }
@@ -648,13 +714,14 @@ export async function syncTokensToVariables(
 export async function resetVariables(
   tokens: TokenCollection,
   themes: ThemeConfig[],
-  onProgress?: SyncProgressCallback
+  onProgress?: SyncProgressCallback,
+  rawFiles: TokenFileInput[] = []
 ): Promise<SyncResult> {
   return syncTokensToVariables(tokens, themes, {
     createNew: false,
     updateExisting: true,
     deleteOrphans: false,
-  }, onProgress);
+  }, onProgress, rawFiles);
 }
 
 /**

@@ -49,6 +49,19 @@ for (const tokenPath of tokenSetOrder) {
   entries.push(`  { path: '${tokenPath}', content: ${varName} as unknown as Record<string, unknown> },`);
 }
 
+// Check for $themes.json
+const themesPath = path.join(TOKENS_DIR, '$themes.json');
+const hasThemes = fs.existsSync(themesPath);
+
+let themesImport = '';
+let themesExport = '';
+if (hasThemes) {
+  themesImport = `import bundledThemes from '../../tokens/$themes.json';`;
+  themesExport = `export const BUNDLED_THEME_CONFIGS = bundledThemes as unknown as import('../shared/types').ThemeConfig[];`;
+} else {
+  themesExport = `export const BUNDLED_THEME_CONFIGS: import('../shared/types').ThemeConfig[] = [];`;
+}
+
 const output = `/**
  * Bundled Token Data - AUTO-GENERATED
  *
@@ -59,10 +72,13 @@ const output = `/**
 import type { TokenFileData } from './tokens-loader';
 
 ${imports.join('\n')}
+${themesImport}
 
 export const BUNDLED_TOKEN_FILES: TokenFileData[] = [
 ${entries.join('\n')}
 ];
+
+${themesExport}
 `;
 
 fs.writeFileSync(OUTPUT_FILE, output, 'utf-8');

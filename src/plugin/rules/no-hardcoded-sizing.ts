@@ -89,7 +89,7 @@ export class NoHardcodedSizingRule extends LintRule {
         // Determine confidence level based on how close the match is
         if (bestMatch.isExact) {
           suggestionConfidence = 'exact';
-        } else if (bestMatch.difference <= 1 || bestMatch.percentDifference <= 0.05) {
+        } else if (bestMatch.difference <= 1 || bestMatch.percentDifference <= 0.10) {
           suggestionConfidence = 'close';
         } else {
           suggestionConfidence = 'approximate';

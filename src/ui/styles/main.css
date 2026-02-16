@@ -224,6 +224,14 @@ body {
   cursor: not-allowed;
 }
 
+.btn-fix.btn-approximate {
+  background-color: var(--color-warning, #e8a100);
+}
+
+.btn-fix.btn-approximate:hover {
+  background-color: #cc8e00;
+}
+
 .btn-fix-all {
   background-color: var(--color-success);
   color: white;

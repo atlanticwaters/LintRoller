@@ -6,11 +6,11 @@
  *   - "github": Fetches token data from GitHub (UI context has relaxed CSP)
  */
 
-import type { TokenSource } from '../shared/types';
-import { BUNDLED_TOKEN_FILES } from './bundled-tokens';
+import type { TokenSource, ThemeConfig } from '../shared/types';
+import { BUNDLED_TOKEN_FILES, BUNDLED_THEME_CONFIGS } from './bundled-tokens';
 
 // Base URL for token files (using raw GitHub content)
-const TOKENS_BASE_URL = 'https://raw.githubusercontent.com/atlanticwaters/Tokens-Studio-Sandbox/main';
+const TOKENS_BASE_URL = 'https://raw.githubusercontent.com/atlanticwaters/Tokens-Studio-Sandbox/main/tokens';
 
 // Fallback token file paths if metadata fetch fails
 const FALLBACK_TOKEN_FILE_PATHS = [
@@ -36,6 +36,11 @@ export interface TokenFileData {
   content: Record<string, unknown>;
 }
 
+export interface TokenLoadResult {
+  files: TokenFileData[];
+  themes: ThemeConfig[];
+}
+
 /**
  * Fetch JSON from a URL
  */
@@ -51,8 +56,9 @@ async function fetchJson<T>(url: string): Promise<T> {
  * Load all token files from remote GitHub.
  * Fetches $metadata.json first to discover the full token set order,
  * then loads each file. Falls back to hardcoded paths if metadata fetch fails.
+ * Also fetches $themes.json for theme configurations.
  */
-export async function loadTokenFilesFromGitHub(): Promise<TokenFileData[]> {
+export async function loadTokenFilesFromGitHub(): Promise<TokenLoadResult> {
   const tokenFiles: TokenFileData[] = [];
 
   // Try to fetch metadata for the full file list
@@ -67,6 +73,15 @@ export async function loadTokenFilesFromGitHub(): Promise<TokenFileData[]> {
     }
   } catch (error) {
     console.warn('[UI] Failed to load metadata, using fallback file paths:', error);
+  }
+
+  // Load themes
+  let themes: ThemeConfig[] = [];
+  try {
+    themes = await fetchJson<ThemeConfig[]>(`${TOKENS_BASE_URL}/$themes.json`);
+    console.log(`[UI] Loaded ${themes.length} theme configs from GitHub`);
+  } catch (error) {
+    console.warn('[UI] Failed to load themes from GitHub:', error);
   }
 
   // Load each token file
@@ -86,22 +101,23 @@ export async function loadTokenFilesFromGitHub(): Promise<TokenFileData[]> {
   }
 
   console.log(`[UI] Loaded ${tokenFiles.length} token files from GitHub`);
-  return tokenFiles;
+  return { files: tokenFiles, themes };
 }
 
 /**
  * Load all token files from the local bundle (embedded at build time).
  * Returns instantly — no network required.
  */
-export function loadTokenFilesLocal(): TokenFileData[] {
+export function loadTokenFilesLocal(): TokenLoadResult {
   console.log(`[UI] Loading ${BUNDLED_TOKEN_FILES.length} bundled token files`);
-  return BUNDLED_TOKEN_FILES;
+  console.log(`[UI] Loading ${BUNDLED_THEME_CONFIGS.length} bundled theme configs`);
+  return { files: BUNDLED_TOKEN_FILES, themes: BUNDLED_THEME_CONFIGS };
 }
 
 /**
  * Load token files based on the selected source.
  */
-export async function loadTokenFilesBySource(source: TokenSource): Promise<TokenFileData[]> {
+export async function loadTokenFilesBySource(source: TokenSource): Promise<TokenLoadResult> {
   if (source === 'local') {
     return loadTokenFilesLocal();
   }

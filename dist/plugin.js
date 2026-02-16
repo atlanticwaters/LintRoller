@@ -32,7 +32,7 @@
         "no-hardcoded-sizing": { enabled: true, severity: "warning" },
         "no-orphaned-variables": { enabled: true, severity: "error" },
         "no-unknown-styles": { enabled: true, severity: "warning" },
-        "prefer-semantic-variables": { enabled: true, severity: "warning" }
+        "prefer-semantic-variables": { enabled: true, severity: "info" }
       },
       skipHiddenLayers: true,
       skipLockedLayers: false
@@ -40,6 +40,26 @@
   }
 
   // src/shared/color-distance.ts
+  function compositeOnWhite(hex) {
+    const cleaned = hex.replace(/^#/, "").toLowerCase();
+    if (cleaned.length === 6 || cleaned.length === 3) {
+      return hex.toLowerCase();
+    }
+    if (cleaned.length === 8) {
+      const r = parseInt(cleaned.slice(0, 2), 16);
+      const g = parseInt(cleaned.slice(2, 4), 16);
+      const b = parseInt(cleaned.slice(4, 6), 16);
+      const a = parseInt(cleaned.slice(6, 8), 16) / 255;
+      if (isNaN(r) || isNaN(g) || isNaN(b) || isNaN(a)) {
+        return hex.toLowerCase();
+      }
+      const cr = Math.round(r * a + 255 * (1 - a));
+      const cg = Math.round(g * a + 255 * (1 - a));
+      const cb = Math.round(b * a + 255 * (1 - a));
+      return "#" + cr.toString(16).padStart(2, "0") + cg.toString(16).padStart(2, "0") + cb.toString(16).padStart(2, "0");
+    }
+    return hex.toLowerCase();
+  }
   function hexToRgb(hex) {
     const cleaned = hex.replace(/^#/, "");
     let fullHex = cleaned;
@@ -433,7 +453,7 @@
       const tokens = new Map(this.resolvedTokens);
       const byType = /* @__PURE__ */ new Map();
       const colorValues = /* @__PURE__ */ new Map();
-      const colorTokensByHex = /* @__PURE__ */ new Map();
+      const allColorPaths = /* @__PURE__ */ new Map();
       const numberValues = /* @__PURE__ */ new Map();
       const colorLab = /* @__PURE__ */ new Map();
       const colorIsSemanticMap = /* @__PURE__ */ new Map();
@@ -442,23 +462,24 @@
         typeList.push(token);
         byType.set(token.type, typeList);
         if (token.type === "color" && typeof token.resolvedValue === "string") {
-          const hex = token.resolvedValue.toLowerCase();
-          if (hex.startsWith("#")) {
+          const rawHex = token.resolvedValue.toLowerCase();
+          if (rawHex.startsWith("#")) {
+            const effectiveHex = compositeOnWhite(rawHex);
             const isSemantic = this.isSemanticToken(token);
-            const existingIsSemantic = colorIsSemanticMap.get(hex) || false;
-            const allPaths = colorTokensByHex.get(hex) || [];
+            const existingIsSemantic = colorIsSemanticMap.get(effectiveHex) || false;
+            const allPaths = allColorPaths.get(effectiveHex) || [];
             if (isSemantic) {
               allPaths.unshift(token.path);
             } else {
               allPaths.push(token.path);
             }
-            colorTokensByHex.set(hex, allPaths);
-            if (!colorValues.has(hex) || isSemantic && !existingIsSemantic) {
-              colorValues.set(hex, token.path);
-              colorIsSemanticMap.set(hex, isSemantic);
-              const lab = hexToLab(hex);
+            allColorPaths.set(effectiveHex, allPaths);
+            if (!colorValues.has(effectiveHex) || isSemantic && !existingIsSemantic) {
+              colorValues.set(effectiveHex, token.path);
+              colorIsSemanticMap.set(effectiveHex, isSemantic);
+              const lab = hexToLab(effectiveHex);
               if (lab) {
-                colorLab.set(hex, lab);
+                colorLab.set(effectiveHex, lab);
               }
             }
           }
@@ -478,7 +499,7 @@
         tokens,
         byType,
         colorValues,
-        colorTokensByHex,
+        allColorPaths,
         numberValues,
         colorLab
       };
@@ -584,38 +605,51 @@
   }
   var PropertyInspector = class {
     /**
-     * Inspect fills and strokes for color bindings
+     * Inspect fills and strokes for color bindings.
+     *
+     * Paint-level variable bindings are stored on each paint object's
+     * boundVariables.color property (set by setBoundVariableForPaint),
+     * NOT on node.boundVariables.fills.
      */
     inspectPaints(node) {
+      var _a, _b, _c, _d, _e, _f;
       const results = [];
       if ("fills" in node && Array.isArray(node.fills)) {
-        const boundVars = node.boundVariables || {};
-        const fillBindings = boundVars.fills;
         for (let i = 0; i < node.fills.length; i++) {
           const fill = node.fills[i];
           if (fill.type === "SOLID" && fill.visible !== false) {
-            const binding = fillBindings == null ? void 0 : fillBindings[i];
+            const solidFill = fill;
+            const paintBoundVars = solidFill.boundVariables;
+            const bindingId = (_a = paintBoundVars == null ? void 0 : paintBoundVars.color) == null ? void 0 : _a.id;
+            const colorAlpha = (_b = solidFill.color.a) != null ? _b : 1;
+            const paintOpacity = (_c = solidFill.opacity) != null ? _c : 1;
+            const combinedAlpha = colorAlpha * paintOpacity;
+            const fillRawValue = combinedAlpha < 1 ? { r: solidFill.color.r, g: solidFill.color.g, b: solidFill.color.b, a: combinedAlpha } : solidFill.color;
             results.push({
               property: `fills[${i}]`,
-              isBound: !!(binding == null ? void 0 : binding.id),
-              boundVariableId: binding == null ? void 0 : binding.id,
-              rawValue: fill.color
+              isBound: !!bindingId,
+              boundVariableId: bindingId,
+              rawValue: fillRawValue
             });
           }
         }
       }
       if ("strokes" in node && Array.isArray(node.strokes)) {
-        const boundVars = node.boundVariables || {};
-        const strokeBindings = boundVars.strokes;
         for (let i = 0; i < node.strokes.length; i++) {
           const stroke = node.strokes[i];
           if (stroke.type === "SOLID" && stroke.visible !== false) {
-            const binding = strokeBindings == null ? void 0 : strokeBindings[i];
+            const solidStroke = stroke;
+            const paintBoundVars = solidStroke.boundVariables;
+            const bindingId = (_d = paintBoundVars == null ? void 0 : paintBoundVars.color) == null ? void 0 : _d.id;
+            const strokeColorAlpha = (_e = solidStroke.color.a) != null ? _e : 1;
+            const strokePaintOpacity = (_f = solidStroke.opacity) != null ? _f : 1;
+            const strokeCombinedAlpha = strokeColorAlpha * strokePaintOpacity;
+            const strokeRawValue = strokeCombinedAlpha < 1 ? { r: solidStroke.color.r, g: solidStroke.color.g, b: solidStroke.color.b, a: strokeCombinedAlpha } : solidStroke.color;
             results.push({
               property: `strokes[${i}]`,
-              isBound: !!(binding == null ? void 0 : binding.id),
-              boundVariableId: binding == null ? void 0 : binding.id,
-              rawValue: stroke.color
+              isBound: !!bindingId,
+              boundVariableId: bindingId,
+              rawValue: strokeRawValue
             });
           }
         }
@@ -942,33 +976,8 @@
   };
 
   // src/plugin/rules/no-hardcoded-colors.ts
-  var ICON_NODE_TYPES = ["VECTOR", "BOOLEAN_OPERATION", "STAR", "LINE", "ELLIPSE", "POLYGON"];
-  function getContextKeywords(property, nodeType) {
-    if (property.includes("stroke")) {
-      return ["border"];
-    }
-    if (property.includes("fill")) {
-      if (nodeType === "TEXT") return ["text"];
-      if (ICON_NODE_TYPES.includes(nodeType)) return ["icon"];
-      return ["background"];
-    }
-    return [];
-  }
-  function pickContextualToken(tokenPaths, keywords) {
-    if (keywords.length === 0 || tokenPaths.length <= 1) {
-      return tokenPaths[0];
-    }
-    for (const keyword of keywords) {
-      const match = tokenPaths.find((p) => {
-        const segments = p.toLowerCase().split(/[./]/);
-        return segments.includes(keyword);
-      });
-      if (match) return match;
-    }
-    return tokenPaths[0];
-  }
   var CLOSE_DELTA_E = 10;
-  var MAX_DELTA_E = 10;
+  var MAX_DELTA_E = 50;
   var MAX_ALTERNATIVES = 3;
   var NoHardcodedColorsRule = class extends LintRule {
     constructor() {
@@ -994,18 +1003,10 @@
         if (hexColor.length === 9 && hexColor.endsWith("00")) {
           continue;
         }
-        const { matches, alphaStripped } = this.findClosestColorTokens(hexColor);
-        if (matches.length > 0 && matches[0].isExact && this.tokens.colorTokensByHex) {
-          const contextHex = matches[0].tokenHex.toLowerCase();
-          const allPaths = this.tokens.colorTokensByHex.get(contextHex);
-          if (allPaths && allPaths.length > 1) {
-            const keywords = getContextKeywords(inspection.property, node.type);
-            const contextual = pickContextualToken(allPaths, keywords);
-            if (contextual && contextual !== matches[0].tokenPath) {
-              console.log(`[NoHardcodedColors] Context override: ${matches[0].tokenPath} \u2192 ${contextual} (keywords: ${keywords.join(",")})`);
-              matches[0] = __spreadProps(__spreadValues({}, matches[0]), { tokenPath: contextual });
-            }
-          }
+        const matches = this.findClosestColorTokens(hexColor);
+        console.log(`[NoHardcodedColors] Checking ${hexColor} - found ${matches.length} matches, colorValues size: ${this.tokens.colorValues.size}`);
+        if (matches.length > 0) {
+          console.log(`[NoHardcodedColors] Best match: ${matches[0].tokenPath} (deltaE: ${matches[0].deltaE})`);
         }
         let suggestedToken;
         let suggestionConfidence;
@@ -1022,9 +1023,6 @@
           } else {
             suggestionConfidence = "approximate";
           }
-          if (alphaStripped && suggestionConfidence !== "approximate") {
-            suggestionConfidence = "approximate";
-          }
           if (matches.length > 1) {
             alternativeTokens = matches.slice(1, MAX_ALTERNATIVES + 1).map((m) => ({
               path: m.tokenPath,
@@ -1035,18 +1033,24 @@
           }
         }
         let message;
-        const alphaNote = alphaStripped ? " (RGB only - alpha differs)" : "";
         if (suggestedToken) {
-          if (!alphaStripped && suggestionConfidence === "exact") {
+          if (suggestionConfidence === "exact") {
             message = "Hardcoded color " + hexColor + " - exact match available: " + suggestedToken;
-          } else if (alphaStripped && matches[0].isExact) {
-            message = "Hardcoded color " + hexColor + " - RGB match: " + suggestedToken + alphaNote;
           } else {
             const bestMatch = matches[0];
-            message = "Hardcoded color " + hexColor + " - closest token: " + suggestedToken + " (" + getDeltaEDescription(bestMatch.deltaE) + ")" + alphaNote;
+            message = "Hardcoded color " + hexColor + " - closest token: " + suggestedToken + " (" + getDeltaEDescription(bestMatch.deltaE) + ")";
           }
         } else {
           message = "Hardcoded color " + hexColor + " - should use a design token";
+        }
+        let suggestedHexColor;
+        if (suggestedToken) {
+          const tokenData = this.tokens.tokens.get(suggestedToken);
+          if (tokenData && typeof tokenData.resolvedValue === "string") {
+            suggestedHexColor = tokenData.resolvedValue;
+          } else if (matches.length > 0) {
+            suggestedHexColor = matches[0].tokenHex;
+          }
         }
         const violation = this.createViolationWithSuggestions(
           node,
@@ -1057,28 +1061,24 @@
           suggestionConfidence,
           alternativeTokens
         );
-        if (suggestionConfidence === "approximate") {
-          violation.canIgnore = true;
-        }
+        violation.currentHexColor = hexColor;
+        violation.suggestedHexColor = suggestedHexColor;
         violations.push(violation);
       }
       return violations;
     }
     /**
-     * Find closest matching color tokens using Delta E.
-     * Returns alphaStripped flag when alpha was removed for RGB-only matching.
+     * Find closest matching color tokens using Delta E
      */
     findClosestColorTokens(hex) {
-      const alphaStripped = hex.length === 9;
-      const hexWithoutAlpha = alphaStripped ? hex.slice(0, 7) : hex;
-      const matches = findClosestColors(
-        hexWithoutAlpha,
+      const matchHex = compositeOnWhite(hex);
+      return findClosestColors(
+        matchHex,
         this.tokens.colorValues,
         this.tokens.colorLab,
         MAX_ALTERNATIVES + 1,
         MAX_DELTA_E
       );
-      return { matches, alphaStripped };
     }
     /**
      * Create a violation with suggestion details
@@ -1840,7 +1840,7 @@
           suggestedToken = bestMatch.tokenPath;
           if (bestMatch.isExact) {
             suggestionConfidence = "exact";
-          } else if (bestMatch.difference <= 1 || bestMatch.percentDifference <= 0.05) {
+          } else if (bestMatch.difference <= 1 || bestMatch.percentDifference <= 0.1) {
             suggestionConfidence = "close";
           } else {
             suggestionConfidence = "approximate";
@@ -1924,6 +1924,30 @@
     }
     return map;
   }
+  var COMMON_PREFIXES = [
+    "system/",
+    "component/",
+    "core/",
+    "semantic/",
+    "primitive/",
+    "color/",
+    "colours/",
+    "colors/",
+    "light/",
+    "dark/",
+    "semantic/light/",
+    "semantic/dark/"
+  ];
+  function stripCommonPrefixes(normalizedPath) {
+    let stripped = normalizedPath;
+    for (const prefix of COMMON_PREFIXES) {
+      if (stripped.startsWith(prefix)) {
+        stripped = stripped.slice(prefix.length);
+        break;
+      }
+    }
+    return stripped;
+  }
   function findMatchingTokenPath(variableName, tokenPaths, collectionName) {
     const normalizedName = normalizePath(variableName);
     const normalizedTokens = buildNormalizedPathMap(tokenPaths);
@@ -1946,7 +1970,80 @@
         return original;
       }
     }
+    const strippedName = stripCommonPrefixes(normalizedName);
+    if (strippedName !== normalizedName) {
+      for (const [normalized, original] of normalizedTokens) {
+        const strippedToken = stripCommonPrefixes(normalized);
+        if (strippedToken === strippedName) {
+          return original;
+        }
+      }
+    }
+    for (const [normalized, original] of normalizedTokens) {
+      const strippedToken = stripCommonPrefixes(normalized);
+      if (strippedToken !== normalized && strippedToken === normalizedName) {
+        return original;
+      }
+    }
     return void 0;
+  }
+  function scorePathSimilarity(path1, path2) {
+    const norm1 = normalizePath(path1);
+    const norm2 = normalizePath(path2);
+    if (norm1 === norm2) return 1;
+    const segs1 = norm1.split("/");
+    const segs2 = norm2.split("/");
+    const maxLen = Math.max(segs1.length, segs2.length);
+    if (maxLen === 0) return 0;
+    let score = 0;
+    const seg2Set = new Set(segs2);
+    let exactMatches = 0;
+    for (const seg of segs1) {
+      if (seg.length > 1 && seg2Set.has(seg)) {
+        exactMatches++;
+      }
+    }
+    score += exactMatches / maxLen * 0.5;
+    const minLen = Math.min(segs1.length, segs2.length);
+    let headMatches = 0;
+    for (let i = 0; i < minLen; i++) {
+      if (segs1[i] === segs2[i]) {
+        headMatches++;
+      } else {
+        break;
+      }
+    }
+    score += headMatches / maxLen * 0.3;
+    const tail1 = segs1[segs1.length - 1];
+    const tail2 = segs2[segs2.length - 1];
+    if (tail1 !== tail2 && tail1 && tail2) {
+      const minTailLen = Math.min(tail1.length, tail2.length);
+      let commonPrefixLen = 0;
+      for (let i = 0; i < minTailLen; i++) {
+        if (tail1[i] === tail2[i]) {
+          commonPrefixLen++;
+        } else {
+          break;
+        }
+      }
+      if (commonPrefixLen > minTailLen * 0.5) {
+        score += commonPrefixLen / Math.max(tail1.length, tail2.length) * 0.2;
+      }
+    } else if (tail1 === tail2) {
+      score += 0.2;
+    }
+    return Math.min(score, 1);
+  }
+  function findFuzzyMatchingTokenPaths(variableName, tokenPaths, minScore = 0.4, maxResults = 5) {
+    const results = [];
+    for (const tokenPath of tokenPaths) {
+      const score = scorePathSimilarity(variableName, tokenPath);
+      if (score >= minScore) {
+        results.push({ path: tokenPath, score });
+      }
+    }
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, maxResults);
   }
 
   // src/plugin/variables.ts
@@ -1995,32 +2092,47 @@
   }
 
   // src/plugin/rules/no-orphaned-variables.ts
-  var ICON_NODE_TYPES2 = ["VECTOR", "BOOLEAN_OPERATION", "STAR", "LINE", "ELLIPSE", "POLYGON"];
-  function getContextKeywords2(property, nodeType) {
-    if (property.includes("stroke")) return ["border"];
-    if (property.includes("fill")) {
-      if (nodeType === "TEXT") return ["text"];
-      if (ICON_NODE_TYPES2.includes(nodeType)) return ["icon"];
-      return ["background"];
-    }
-    return [];
-  }
-  function pickContextualToken2(tokenPaths, keywords) {
-    if (keywords.length === 0 || tokenPaths.length <= 1) {
-      return tokenPaths[0];
-    }
-    for (const keyword of keywords) {
-      const match = tokenPaths.find((p) => {
-        const segments = p.toLowerCase().split(/[./]/);
-        return segments.includes(keyword);
-      });
-      if (match) return match;
-    }
-    return tokenPaths[0];
-  }
-  var MAX_COLOR_DELTA_E = 10;
+  var MAX_COLOR_DELTA_E = 50;
   var MAX_ALTERNATIVES7 = 3;
-  var NUMBER_TOLERANCE_PERCENT = 0.5;
+  var NUMBER_TOLERANCE_PERCENT = 1;
+  var PROPERTY_CATEGORY_HINTS = {
+    "fills": ["background", "surface", "container", "overlay", "accent"],
+    "strokes": ["border", "outline", "divider", "separator"],
+    "effects": ["elevation", "shadow"]
+  };
+  function scoreTokenByContext(tokenPath, property, variableName) {
+    const normalizedToken = tokenPath.toLowerCase();
+    let score = 0;
+    if (variableName) {
+      const normalizedVar = normalizePath(variableName);
+      const normalizedTok = normalizePath(tokenPath);
+      const varSegments = normalizedVar.split("/");
+      const tokSegments = normalizedTok.split("/");
+      for (const seg of varSegments) {
+        if (seg.length > 2 && tokSegments.includes(seg)) {
+          score += 10;
+        }
+      }
+      if (varSegments.length > 1 && tokSegments.length > 1 && varSegments[1] === tokSegments[1]) {
+        score += 20;
+      }
+    }
+    const propertyBase = property.replace(/\[\d+\]/, "");
+    const hints = PROPERTY_CATEGORY_HINTS[propertyBase];
+    if (hints) {
+      for (const hint of hints) {
+        if (normalizedToken.includes(hint)) {
+          score += 5;
+        }
+      }
+    }
+    if (propertyBase === "fills" || propertyBase === "strokes") {
+      if (normalizedToken.includes(".icon.") || normalizedToken.includes(".text.")) {
+        score -= 15;
+      }
+    }
+    return score;
+  }
   var NoOrphanedVariablesRule = class extends LintRule {
     constructor(config, tokens, figmaVariables, matchedVariableIds) {
       super(config, tokens);
@@ -2041,38 +2153,62 @@
         }
         const variableInfo = this.figmaVariables.get(inspection.boundVariableId);
         if (!variableInfo) {
-          const suggestion = await this.findReplacementForMissingVariable(
-            node,
-            inspection.property,
-            inspection.boundVariableId,
-            inspection.rawValue
-          );
-          let message = `Bound to missing variable ID: ${inspection.boundVariableId}`;
+          let variableName;
+          let variableCollectionName;
+          try {
+            const variable = await figma.variables.getVariableByIdAsync(inspection.boundVariableId);
+            if (variable) {
+              variableName = variable.name;
+              try {
+                const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+                if (collection) {
+                  variableCollectionName = collection.name;
+                }
+              } catch (e) {
+              }
+            }
+          } catch (e) {
+          }
+          let suggestion = {};
+          if (variableName) {
+            suggestion = this.findNameBasedMatch(variableName);
+            if (suggestion.suggestedToken && inspection.rawValue && typeof inspection.rawValue === "object" && "r" in inspection.rawValue) {
+              const colorValue = inspection.rawValue;
+              suggestion.currentHexColor = rgbToHex(colorValue);
+            }
+          }
+          if (!suggestion.suggestedToken) {
+            suggestion = await this.findReplacementFromCurrentValue(
+              node,
+              inspection.property,
+              inspection.rawValue,
+              variableName
+            );
+          }
+          let message = variableName ? `Variable "${variableName}" is not in the token set` : `Bound to missing variable ID: ${inspection.boundVariableId}`;
           if (suggestion.suggestedToken) {
-            message += `. Suggested replacement: ${suggestion.suggestedToken}`;
+            if (suggestion.confidence === "exact" || suggestion.confidence === "close") {
+              message += `. Best match: ${suggestion.suggestedToken}`;
+            } else {
+              message += `. Nearest match (review recommended): ${suggestion.suggestedToken}`;
+            }
           }
           const violation = this.createViolation(
             node,
             inspection.property,
-            inspection.boundVariableId,
+            variableName || inspection.boundVariableId,
             message,
             suggestion.suggestedToken
           );
           violation.canUnbind = true;
           violation.suggestionConfidence = suggestion.confidence;
           violation.alternativeTokens = suggestion.alternatives;
-          if (suggestion.confidence === "approximate") {
-            violation.canIgnore = true;
-          }
+          violation.currentHexColor = suggestion.currentHexColor;
+          violation.suggestedHexColor = suggestion.suggestedHexColor;
           violations.push(violation);
         } else if (this.matchedVariableIds.size > 0 && !this.matchedVariableIds.has(inspection.boundVariableId)) {
           const matchedTokenPath = getTokenPathForVariable(variableInfo, this.tokens);
           if (matchedTokenPath) {
-            continue;
-          }
-          const normalizedVarName = normalizePath(variableInfo.name);
-          const normalizedCollName = normalizePath(variableInfo.collectionName);
-          if (normalizedVarName.startsWith("system/") || normalizedVarName.startsWith("component/") || normalizedCollName === "system" || normalizedCollName.includes("semantic") || normalizedCollName.includes("component")) {
             continue;
           }
           const pathMismatchToken = this.findPathMismatchToken(variableInfo.name);
@@ -2095,8 +2231,7 @@
           const suggestion = await this.findReplacementToken(
             inspection.boundVariableId,
             variableInfo,
-            inspection.property,
-            node.type
+            inspection.property
           );
           let message = `Variable "${variableInfo.name}" is not defined in the token set`;
           if (suggestion.suggestedToken && suggestion.confidence !== "exact") {
@@ -2114,9 +2249,8 @@
           violation.canUnbind = true;
           violation.suggestionConfidence = suggestion.confidence;
           violation.alternativeTokens = suggestion.alternatives;
-          if (suggestion.confidence === "approximate") {
-            violation.canIgnore = true;
-          }
+          violation.currentHexColor = suggestion.currentHexColor;
+          violation.suggestedHexColor = suggestion.suggestedHexColor;
           violations.push(violation);
         }
       }
@@ -2137,60 +2271,18 @@
       return void 0;
     }
     /**
-     * Find a replacement token for a missing variable.
+     * Find a replacement token based on the node's current visual value.
+     * Used when the bound variable ID no longer exists in the document.
      *
-     * Two-step approach:
-     * 1. Try resolving the variable via Figma API (handles library variables
-     *    that aren't in the local collection)
-     * 2. Fall back to reading the node's actual visual value (including paint
-     *    opacity, which rawValue from the inspector lacks)
+     * For missing variables, we have no semantic context, so confidence
+     * is capped at 'approximate' to signal the user should review.
      */
-    async findReplacementForMissingVariable(node, property, boundVariableId, rawValue) {
-      try {
-        const variable = await figma.variables.getVariableByIdAsync(boundVariableId);
-        if (variable) {
-          const collection = await figma.variables.getVariableCollectionByIdAsync(
-            variable.variableCollectionId
-          );
-          if (collection && collection.modes.length > 0) {
-            const defaultModeId = collection.defaultModeId;
-            let value = variable.valuesByMode[defaultModeId];
-            if (variable.resolvedType === "COLOR") {
-              if (value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS") {
-                const resolved = await this.resolveVariableAlias(value);
-                if (resolved) value = resolved;
-              }
-              if (value && typeof value === "object" && value !== null && "r" in value) {
-                console.log("[OrphanedVariables] Resolved missing variable via API: " + variable.name);
-                return this.findColorReplacement(value, property, node.type);
-              }
-            } else if (variable.resolvedType === "FLOAT") {
-              if (value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS") {
-                const resolved = await this.resolveVariableAlias(value);
-                if (typeof resolved === "number") value = resolved;
-              }
-              if (typeof value === "number") {
-                console.log("[OrphanedVariables] Resolved missing variable via API: " + variable.name);
-                return this.findNumberReplacement(value, property);
-              }
-            }
-          }
-        }
-      } catch (e) {
-      }
+    async findReplacementFromCurrentValue(node, property, rawValue, variableName) {
       try {
         if (property.includes("fills") || property.includes("strokes")) {
-          const colorValue = this.readColorFromNode(node, property);
-          if (colorValue) {
-            console.log("[OrphanedVariables] Read color from node for: " + property);
-            return this.findColorReplacement(colorValue, property, node.type);
-          }
           if (rawValue && typeof rawValue === "object" && "r" in rawValue) {
-            return this.findColorReplacement(
-              rawValue,
-              property,
-              node.type
-            );
+            const colorValue = rawValue;
+            return this.findContextAwareColorReplacement(colorValue, property, variableName);
           }
         }
         if (typeof rawValue === "number") {
@@ -2211,48 +2303,88 @@
           "paragraphSpacing"
         ];
         if (numberProps.includes(property)) {
-          const nodeValue = node[property];
-          if (typeof nodeValue === "number") {
-            return this.findNumberReplacement(nodeValue, property);
+          const nodeWithProps = node;
+          const value = nodeWithProps[property];
+          if (typeof value === "number") {
+            return this.findNumberReplacement(value, property);
           }
         }
         return {};
       } catch (error) {
-        console.error("[OrphanedVariables] Error finding replacement for missing variable:", error);
+        console.error("[OrphanedVariables] Error finding replacement from current value:", error);
         return {};
       }
     }
     /**
-     * Read the current color value directly from a node's paint,
-     * including paint opacity (which rawValue from the inspector lacks).
+     * Find a replacement token by name similarity.
+     * This is the PRIMARY matching strategy - find tokens whose path
+     * closely matches the variable name before falling back to color-value matching.
+     *
+     * Example: variable "system/background/container-color/transparent-10"
+     * should match token "system.background.container-color.transparent-10" (exact)
+     * or "system.background.container-color.transparent-5" (close name match)
+     * rather than "system.background.overlay-color.page-scrim" (wrong name, similar color)
      */
-    readColorFromNode(node, property) {
-      var _a, _b;
-      const fillMatch = property.match(/^fills\[(\d+)\]$/);
-      if (fillMatch && "fills" in node) {
-        const idx = parseInt(fillMatch[1], 10);
-        const fills = node.fills;
-        if (Array.isArray(fills) && fills[idx] && fills[idx].type === "SOLID") {
-          const paint = fills[idx];
-          return __spreadProps(__spreadValues({}, paint.color), { a: (_a = paint.opacity) != null ? _a : 1 });
-        }
+    findNameBasedMatch(variableName) {
+      const allTokenPaths = Array.from(this.tokens.tokens.keys());
+      const nameMatches = findFuzzyMatchingTokenPaths(variableName, allTokenPaths, 0.4, MAX_ALTERNATIVES7 + 1);
+      if (nameMatches.length === 0) {
+        return {};
       }
-      const strokeMatch = property.match(/^strokes\[(\d+)\]$/);
-      if (strokeMatch && "strokes" in node) {
-        const idx = parseInt(strokeMatch[1], 10);
-        const strokes = node.strokes;
-        if (Array.isArray(strokes) && strokes[idx] && strokes[idx].type === "SOLID") {
-          const paint = strokes[idx];
-          return __spreadProps(__spreadValues({}, paint.color), { a: (_b = paint.opacity) != null ? _b : 1 });
-        }
+      const bestMatch = nameMatches[0];
+      let confidence;
+      if (bestMatch.score >= 0.95) {
+        confidence = "exact";
+      } else if (bestMatch.score >= 0.6) {
+        confidence = "close";
+      } else {
+        confidence = "approximate";
       }
-      return null;
+      const alternatives = nameMatches.length > 1 ? nameMatches.slice(1, MAX_ALTERNATIVES7 + 1).map((m) => {
+        const token = this.tokens.tokens.get(m.path);
+        const resolvedValue = token ? token.resolvedValue : "";
+        return {
+          path: m.path,
+          value: typeof resolvedValue === "string" ? resolvedValue : resolvedValue,
+          distance: Math.round((1 - m.score) * 100) / 100,
+          description: m.score >= 0.8 ? "similar name" : "partial name match"
+        };
+      }) : void 0;
+      const suggestedTokenData = this.tokens.tokens.get(bestMatch.path);
+      const suggestedHexColor = suggestedTokenData && typeof suggestedTokenData.resolvedValue === "string" ? suggestedTokenData.resolvedValue : void 0;
+      return {
+        suggestedToken: bestMatch.path,
+        confidence,
+        alternatives,
+        suggestedHexColor
+      };
     }
     /**
-     * Find a replacement token based on the variable's resolved value
+     * Find a replacement token based on the variable's resolved value.
+     *
+     * Strategy order:
+     * 1. Name-based fuzzy matching (PRIMARY) - match by path similarity
+     * 2. Color-value matching (FALLBACK) - match by visual color proximity
      */
-    async findReplacementToken(variableId, variableInfo, property, nodeType) {
+    async findReplacementToken(variableId, variableInfo, property) {
       try {
+        const nameMatch = this.findNameBasedMatch(variableInfo.name);
+        if (nameMatch.suggestedToken) {
+          if (variableInfo.resolvedType === "COLOR") {
+            const variable2 = await figma.variables.getVariableByIdAsync(variableId);
+            if (variable2) {
+              const collection2 = await figma.variables.getVariableCollectionByIdAsync(variable2.variableCollectionId);
+              if (collection2 && collection2.modes.length > 0) {
+                const value2 = variable2.valuesByMode[collection2.defaultModeId];
+                if (value2 && typeof value2 === "object" && "r" in value2) {
+                  const colorValue = value2;
+                  nameMatch.currentHexColor = rgbToHex(colorValue);
+                }
+              }
+            }
+          }
+          return nameMatch;
+        }
         const variable = await figma.variables.getVariableByIdAsync(variableId);
         if (!variable) {
           return {};
@@ -2262,23 +2394,17 @@
           return {};
         }
         const defaultModeId = collection.defaultModeId;
-        let value = variable.valuesByMode[defaultModeId];
+        const value = variable.valuesByMode[defaultModeId];
         if (value === void 0) {
           return {};
         }
         if (variableInfo.resolvedType === "COLOR") {
-          if (typeof value === "object" && value !== null && "type" in value && value.type === "VARIABLE_ALIAS") {
-            const resolved = await this.resolveVariableAlias(value);
-            if (!resolved) return {};
-            value = resolved;
-          }
-          return this.findColorReplacement(value, property, nodeType);
+          return this.findContextAwareColorReplacement(
+            value,
+            property,
+            variableInfo.name
+          );
         } else if (variableInfo.resolvedType === "FLOAT") {
-          if (typeof value === "object" && value !== null && "type" in value && value.type === "VARIABLE_ALIAS") {
-            const resolved = await this.resolveVariableAlias(value);
-            if (typeof resolved !== "number") return {};
-            value = resolved;
-          }
           return this.findNumberReplacement(value, property);
         }
         return {};
@@ -2288,31 +2414,12 @@
       }
     }
     /**
-     * Resolve a VariableAlias chain to its final value
+     * Find a replacement color token using BOTH color proximity AND semantic context.
+     *
+     * Uses the allColorPaths index to get ALL tokens for a given hex,
+     * then scores them by context relevance (property type, variable name similarity).
      */
-    async resolveVariableAlias(alias, visited) {
-      const seen = visited || /* @__PURE__ */ new Set();
-      if (seen.has(alias.id)) return null;
-      seen.add(alias.id);
-      try {
-        const variable = await figma.variables.getVariableByIdAsync(alias.id);
-        if (!variable) return null;
-        const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
-        if (!collection) return null;
-        const value = variable.valuesByMode[collection.defaultModeId];
-        if (value === void 0 || value === null) return null;
-        if (typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS") {
-          return this.resolveVariableAlias(value, seen);
-        }
-        return value;
-      } catch (e) {
-        return null;
-      }
-    }
-    /**
-     * Find a replacement color token
-     */
-    findColorReplacement(value, property, nodeType) {
+    findContextAwareColorReplacement(value, property, variableName) {
       if (typeof value !== "object" || value === null) {
         return {};
       }
@@ -2321,51 +2428,94 @@
         return {};
       }
       const hexColor = rgbToHex(colorValue);
-      const hasAlpha = hexColor.length === 9;
-      const hexWithoutAlpha = hasAlpha ? hexColor.slice(0, 7) : hexColor;
-      const matches = findClosestColors(
-        hexWithoutAlpha,
+      const matchHex = compositeOnWhite(hexColor);
+      const colorMatches = findClosestColors(
+        matchHex,
         this.tokens.colorValues,
         this.tokens.colorLab,
-        MAX_ALTERNATIVES7 + 1,
+        MAX_ALTERNATIVES7 + 5,
+        // Get extra matches since we'll re-rank
         MAX_COLOR_DELTA_E
       );
-      if (matches.length === 0) {
+      if (colorMatches.length === 0) {
         return {};
       }
-      let bestMatch = matches[0];
-      let confidence;
-      if (bestMatch.isExact) {
-        confidence = "exact";
-        if (property && nodeType && this.tokens.colorTokensByHex) {
-          const allPaths = this.tokens.colorTokensByHex.get(bestMatch.tokenHex.toLowerCase());
-          if (allPaths && allPaths.length > 1) {
-            const keywords = getContextKeywords2(property, nodeType);
-            const contextual = pickContextualToken2(allPaths, keywords);
-            if (contextual && contextual !== bestMatch.tokenPath) {
-              console.log(`[OrphanedVariables] Context override: ${bestMatch.tokenPath} \u2192 ${contextual} (keywords: ${keywords.join(",")})`);
-              bestMatch = __spreadProps(__spreadValues({}, bestMatch), { tokenPath: contextual });
-            }
+      const allCandidates = [];
+      for (const match of colorMatches) {
+        if (match.isExact) {
+          const allPaths = this.tokens.allColorPaths.get(match.tokenHex.toLowerCase()) || [match.tokenPath];
+          for (const path of allPaths) {
+            allCandidates.push({
+              tokenPath: path,
+              tokenHex: match.tokenHex,
+              deltaE: 0,
+              isExact: true,
+              contextScore: scoreTokenByContext(path, property, variableName)
+            });
+          }
+        } else {
+          const allPaths = this.tokens.allColorPaths.get(match.tokenHex.toLowerCase()) || [match.tokenPath];
+          for (const path of allPaths) {
+            allCandidates.push({
+              tokenPath: path,
+              tokenHex: match.tokenHex,
+              deltaE: match.deltaE,
+              isExact: false,
+              contextScore: scoreTokenByContext(path, property, variableName)
+            });
           }
         }
-      } else if (bestMatch.deltaE < 2) {
-        confidence = "close";
+      }
+      allCandidates.sort((a, b) => {
+        if (a.isExact && !b.isExact) return -1;
+        if (!a.isExact && b.isExact) return 1;
+        const deltaETier = (d) => d === 0 ? 0 : d < 2 ? 1 : d < 5 ? 2 : 3;
+        const tierA = deltaETier(a.deltaE);
+        const tierB = deltaETier(b.deltaE);
+        if (tierA !== tierB) return tierA - tierB;
+        if (a.contextScore !== b.contextScore) return b.contextScore - a.contextScore;
+        return a.deltaE - b.deltaE;
+      });
+      const seen = /* @__PURE__ */ new Set();
+      const uniqueCandidates = allCandidates.filter((c) => {
+        if (seen.has(c.tokenPath)) return false;
+        seen.add(c.tokenPath);
+        return true;
+      });
+      if (uniqueCandidates.length === 0) {
+        return {};
+      }
+      const bestMatch = uniqueCandidates[0];
+      let confidence;
+      if (!variableName) {
+        if (bestMatch.isExact || bestMatch.deltaE < 2) {
+          confidence = "close";
+        } else {
+          confidence = "approximate";
+        }
       } else {
-        confidence = "approximate";
+        if (bestMatch.isExact && bestMatch.contextScore > 10) {
+          confidence = "exact";
+        } else if (bestMatch.isExact || bestMatch.deltaE < 2) {
+          confidence = "close";
+        } else {
+          confidence = "approximate";
+        }
       }
-      if (hasAlpha && confidence !== "approximate") {
-        confidence = "approximate";
-      }
-      const alternatives = matches.length > 1 ? matches.slice(1, MAX_ALTERNATIVES7 + 1).map((m) => ({
-        path: m.tokenPath,
-        value: m.tokenHex,
-        distance: Math.round(m.deltaE * 10) / 10,
-        description: getDeltaEDescription(m.deltaE)
+      const alternatives = uniqueCandidates.length > 1 ? uniqueCandidates.slice(1, MAX_ALTERNATIVES7 + 1).map((c) => ({
+        path: c.tokenPath,
+        value: c.tokenHex,
+        distance: Math.round(c.deltaE * 10) / 10,
+        description: c.isExact ? c.contextScore > 0 ? "exact color, similar context" : "exact color, different context" : getDeltaEDescription(c.deltaE)
       })) : void 0;
+      const suggestedToken = this.tokens.tokens.get(bestMatch.tokenPath);
+      const suggestedHexColor = suggestedToken && typeof suggestedToken.resolvedValue === "string" ? suggestedToken.resolvedValue : bestMatch.tokenHex;
       return {
         suggestedToken: bestMatch.tokenPath,
         confidence,
-        alternatives
+        alternatives,
+        currentHexColor: hexColor,
+        suggestedHexColor
       };
     }
     /**
@@ -2432,7 +2582,7 @@
     findMatchingNumberTokens(value, category) {
       const matches = [];
       const tolerance = value * NUMBER_TOLERANCE_PERCENT;
-      const maxAbsoluteTolerance = 8;
+      const maxAbsoluteTolerance = 20;
       for (const [path, token] of this.tokens.tokens) {
         if (category === "spacing" && !path.toLowerCase().includes("spacing") && !path.toLowerCase().includes("space")) {
           continue;
@@ -2489,9 +2639,8 @@
           violation.canDetach = true;
           violation.suggestionConfidence = suggestion == null ? void 0 : suggestion.confidence;
           violation.alternativeTokens = suggestion == null ? void 0 : suggestion.alternatives;
-          if ((suggestion == null ? void 0 : suggestion.confidence) === "approximate") {
-            violation.canIgnore = true;
-          }
+          violation.currentHexColor = suggestion == null ? void 0 : suggestion.currentHexColor;
+          violation.suggestedHexColor = suggestion == null ? void 0 : suggestion.suggestedHexColor;
           violations.push(violation);
         }
       }
@@ -2509,9 +2658,8 @@
           violation.canDetach = true;
           violation.suggestionConfidence = suggestion == null ? void 0 : suggestion.confidence;
           violation.alternativeTokens = suggestion == null ? void 0 : suggestion.alternatives;
-          if ((suggestion == null ? void 0 : suggestion.confidence) === "approximate") {
-            violation.canIgnore = true;
-          }
+          violation.currentHexColor = suggestion == null ? void 0 : suggestion.currentHexColor;
+          violation.suggestedHexColor = suggestion == null ? void 0 : suggestion.suggestedHexColor;
           violations.push(violation);
         }
       }
@@ -2547,7 +2695,9 @@
       return violations;
     }
     /**
-     * Find a color token suggestion based on the node's current color
+     * Find a color token suggestion based on the node's current color.
+     * Uses allColorPaths to get ALL tokens for a hex, then picks the
+     * most contextually relevant one (e.g., fills prefer background tokens).
      */
     async findColorSuggestion(node, paintType) {
       try {
@@ -2557,16 +2707,51 @@
         const solidPaint = paints.find((p) => p.type === "SOLID" && p.visible !== false);
         if (!solidPaint) return null;
         const hexColor = rgbToHex(solidPaint.color);
-        const hexWithoutAlpha = hexColor.length === 9 ? hexColor.slice(0, 7) : hexColor;
+        const matchHex = compositeOnWhite(hexColor);
         const matches = findClosestColors(
-          hexWithoutAlpha,
+          matchHex,
           this.tokens.colorValues,
           this.tokens.colorLab,
-          MAX_ALTERNATIVES8 + 1,
+          MAX_ALTERNATIVES8 + 3,
           MAX_COLOR_DELTA_E2
         );
         if (matches.length === 0) return null;
-        const bestMatch = matches[0];
+        const categoryHints = {
+          "fills": ["background", "surface", "container", "overlay", "accent"],
+          "strokes": ["border", "outline", "divider", "separator"]
+        };
+        const candidates = [];
+        for (const match of matches) {
+          const allPaths = this.tokens.allColorPaths.get(match.tokenHex.toLowerCase()) || [match.tokenPath];
+          for (const path of allPaths) {
+            let score = 0;
+            const lowerPath = path.toLowerCase();
+            const hints = categoryHints[paintType];
+            if (hints) {
+              for (const hint of hints) {
+                if (lowerPath.includes(hint)) score += 5;
+              }
+            }
+            if (paintType === "fills" && (lowerPath.includes(".icon.") || lowerPath.includes(".text."))) {
+              score -= 10;
+            }
+            candidates.push({ path, hex: match.tokenHex, deltaE: match.deltaE, isExact: match.isExact, score });
+          }
+        }
+        candidates.sort((a, b) => {
+          if (a.isExact && !b.isExact) return -1;
+          if (!a.isExact && b.isExact) return 1;
+          if (a.score !== b.score) return b.score - a.score;
+          return a.deltaE - b.deltaE;
+        });
+        const seen = /* @__PURE__ */ new Set();
+        const unique = candidates.filter((c) => {
+          if (seen.has(c.path)) return false;
+          seen.add(c.path);
+          return true;
+        });
+        if (unique.length === 0) return null;
+        const bestMatch = unique[0];
         let confidence;
         if (bestMatch.isExact) {
           confidence = "exact";
@@ -2575,16 +2760,20 @@
         } else {
           confidence = "approximate";
         }
-        const alternatives = matches.length > 1 ? matches.slice(1, MAX_ALTERNATIVES8 + 1).map((m) => ({
-          path: m.tokenPath,
-          value: m.tokenHex,
-          distance: Math.round(m.deltaE * 10) / 10,
-          description: getDeltaEDescription(m.deltaE)
+        const alternatives = unique.length > 1 ? unique.slice(1, MAX_ALTERNATIVES8 + 1).map((c) => ({
+          path: c.path,
+          value: c.hex,
+          distance: Math.round(c.deltaE * 10) / 10,
+          description: c.isExact ? c.score > 0 ? "exact color, similar context" : "exact color, different context" : getDeltaEDescription(c.deltaE)
         })) : void 0;
+        const suggestedToken = this.tokens.tokens.get(bestMatch.path);
+        const suggestedHexColor = suggestedToken && typeof suggestedToken.resolvedValue === "string" ? suggestedToken.resolvedValue : bestMatch.hex;
         return {
-          suggestedToken: bestMatch.tokenPath,
+          suggestedToken: bestMatch.path,
           confidence,
-          alternatives
+          alternatives,
+          currentHexColor: hexColor,
+          suggestedHexColor
         };
       } catch (error) {
         console.error("[NoUnknownStyles] Error finding color suggestion:", error);
@@ -2610,12 +2799,12 @@
   };
 
   // src/plugin/rules/prefer-semantic-variables.ts
-  var ICON_NODE_TYPES3 = ["VECTOR", "BOOLEAN_OPERATION", "STAR", "LINE", "ELLIPSE", "POLYGON"];
-  function getContextKeywords3(property, nodeType) {
+  var ICON_NODE_TYPES = ["VECTOR", "BOOLEAN_OPERATION", "STAR", "LINE", "ELLIPSE", "POLYGON"];
+  function getContextKeywords(property, nodeType) {
     if (property.includes("stroke")) return ["border"];
     if (property.includes("fill")) {
       if (nodeType === "TEXT") return ["text"];
-      if (ICON_NODE_TYPES3.includes(nodeType)) return ["icon"];
+      if (ICON_NODE_TYPES.includes(nodeType)) return ["icon"];
       return ["background"];
     }
     return [];
@@ -2699,7 +2888,7 @@
         if (!resolved) continue;
         const candidates = this.findSemanticAlternatives(resolved);
         if (candidates.length === 0) continue;
-        const keywords = getContextKeywords3(inspection.property, node.type);
+        const keywords = getContextKeywords(inspection.property, node.type);
         const best = this.pickBestCandidate(candidates, keywords);
         const valueStr = resolved.type === "color" ? resolved.hex : String(resolved.value);
         const message = 'Core variable "' + varInfo.name + '" should use semantic variable "' + best.variableInfo.name + '" (same value: ' + valueStr + ")";
@@ -2892,6 +3081,10 @@
   }
 
   // src/plugin/fixer.ts
+  async function loadAllFonts(textNode) {
+    const fonts = textNode.getRangeAllFontNames(0, textNode.characters.length);
+    await Promise.all(fonts.map((f) => figma.loadFontAsync(f)));
+  }
   var _cachedIndex = null;
   var _indexTimestamp = 0;
   var INDEX_TTL_MS = 5e3;
@@ -3121,12 +3314,12 @@
     }
     return null;
   }
-  var ICON_NODE_TYPES4 = ["VECTOR", "BOOLEAN_OPERATION", "STAR", "LINE", "ELLIPSE", "POLYGON"];
-  function getContextKeywords4(property, nodeType) {
+  var ICON_NODE_TYPES2 = ["VECTOR", "BOOLEAN_OPERATION", "STAR", "LINE", "ELLIPSE", "POLYGON"];
+  function getContextKeywords2(property, nodeType) {
     if (property.includes("stroke")) return ["border"];
     if (property.includes("fill")) {
       if (nodeType === "TEXT") return ["text"];
-      if (ICON_NODE_TYPES4.includes(nodeType)) return ["icon"];
+      if (ICON_NODE_TYPES2.includes(nodeType)) return ["icon"];
       return ["background"];
     }
     return [];
@@ -3137,15 +3330,17 @@
     return keywords.some((k) => segments.includes(k)) ? 10 : 0;
   }
   function readCurrentValue(node, property) {
-    var _a, _b;
+    var _a, _b, _c, _d;
     const fillMatch = property.match(/^fills\[(\d+)\]$/);
     if (fillMatch && "fills" in node) {
       const idx = parseInt(fillMatch[1], 10);
       const fills = node.fills;
       if (Array.isArray(fills) && fills[idx] && fills[idx].type === "SOLID") {
         const paint = fills[idx];
-        const opacity = (_a = paint.opacity) != null ? _a : 1;
-        const hex = rgbToHex(__spreadProps(__spreadValues({}, paint.color), { a: opacity }));
+        const colorAlpha = (_a = paint.color.a) != null ? _a : 1;
+        const paintOpacity = (_b = paint.opacity) != null ? _b : 1;
+        const combinedAlpha = colorAlpha * paintOpacity;
+        const hex = rgbToHex(__spreadProps(__spreadValues({}, paint.color), { a: combinedAlpha }));
         return { type: "color", hex };
       }
     }
@@ -3155,8 +3350,10 @@
       const strokes = node.strokes;
       if (Array.isArray(strokes) && strokes[idx] && strokes[idx].type === "SOLID") {
         const paint = strokes[idx];
-        const opacity = (_b = paint.opacity) != null ? _b : 1;
-        const hex = rgbToHex(__spreadProps(__spreadValues({}, paint.color), { a: opacity }));
+        const colorAlpha = (_c = paint.color.a) != null ? _c : 1;
+        const paintOpacity = (_d = paint.opacity) != null ? _d : 1;
+        const combinedAlpha = colorAlpha * paintOpacity;
+        const hex = rgbToHex(__spreadProps(__spreadValues({}, paint.color), { a: combinedAlpha }));
         return { type: "color", hex };
       }
     }
@@ -3167,13 +3364,46 @@
     }
     return null;
   }
+  async function readBoundVariableName(node, property) {
+    var _a, _b, _c, _d, _e, _f;
+    try {
+      let bindingId;
+      const fillMatch = property.match(/^fills\[(\d+)\]$/);
+      if (fillMatch && "fills" in node) {
+        const idx = parseInt(fillMatch[1], 10);
+        const fills = node.fills;
+        if (Array.isArray(fills) && fills[idx]) {
+          const paint = fills[idx];
+          bindingId = (_b = (_a = paint.boundVariables) == null ? void 0 : _a.color) == null ? void 0 : _b.id;
+        }
+      }
+      const strokeMatch = property.match(/^strokes\[(\d+)\]$/);
+      if (strokeMatch && "strokes" in node) {
+        const idx = parseInt(strokeMatch[1], 10);
+        const strokes = node.strokes;
+        if (Array.isArray(strokes) && strokes[idx]) {
+          const paint = strokes[idx];
+          bindingId = (_d = (_c = paint.boundVariables) == null ? void 0 : _c.color) == null ? void 0 : _d.id;
+        }
+      }
+      if (!bindingId) {
+        const boundVars = node.boundVariables || {};
+        bindingId = (_e = boundVars[property]) == null ? void 0 : _e.id;
+      }
+      if (!bindingId) return null;
+      const variable = await figma.variables.getVariableByIdAsync(bindingId);
+      return (_f = variable == null ? void 0 : variable.name) != null ? _f : null;
+    } catch (e) {
+      return null;
+    }
+  }
   function typeMatches(v, expected) {
     return !expected || v.resolvedType === expected;
   }
   async function findVariableForToken(tokenPath, index, expectedType, tokens, context, currentValue) {
     const cvDesc = currentValue ? currentValue.type === "color" ? currentValue.hex : String(currentValue.value) : "unknown";
     console.log('[Fixer] Finding variable for "' + tokenPath + '" (current: ' + cvDesc + ")");
-    const keywords = context ? getContextKeywords4(context.property, context.nodeType) : [];
+    const keywords = context ? getContextKeywords2(context.property, context.nodeType) : [];
     {
       const match = tryNameBasedMatch(tokenPath, index, expectedType, context);
       if (match) {
@@ -3190,11 +3420,11 @@
           if (varNum !== void 0 && varNum !== currentValue.value) {
             const diff = Math.abs(varNum - currentValue.value);
             const pctDiff = currentValue.value !== 0 ? diff / Math.abs(currentValue.value) : diff;
-            if (diff <= 1 || pctDiff <= 0.05) {
-              console.log("[Fixer] Name match (close, diff=" + diff.toFixed(2) + "): " + match.name);
+            if (diff <= 4 || pctDiff <= 0.25) {
+              console.log("[Fixer] Name match (close, diff=" + diff.toFixed(2) + ", " + (pctDiff * 100).toFixed(1) + "%): " + match.name);
               return match;
             }
-            console.log('[Fixer] Name match "' + match.name + '" rejected: number ' + varNum + " != " + currentValue.value + " (diff=" + diff.toFixed(2) + ")");
+            console.log('[Fixer] Name match "' + match.name + '" rejected: number ' + varNum + " != " + currentValue.value + " (diff=" + diff.toFixed(2) + ", " + (pctDiff * 100).toFixed(1) + "%)");
           } else {
             console.log("[Fixer] Name match: " + match.name);
             return match;
@@ -3247,7 +3477,8 @@
       let bestCloseScore = -Infinity;
       for (const [numVal, vars] of index.byResolvedNumber) {
         const diff = Math.abs(numVal - currentValue.value);
-        if (diff > 0 && diff <= 1) {
+        const pctDiff = currentValue.value !== 0 ? diff / Math.abs(currentValue.value) : diff;
+        if (diff > 0 && (diff <= 4 || pctDiff <= 0.25)) {
           const typed = vars.filter((v) => typeMatches(v, expectedType) && excludeComponent(v));
           if (typed.length > 0) {
             const best = pickBestVariable(typed, index, keywords, tokenPath, tokens);
@@ -3299,7 +3530,7 @@
     return bestSuffix;
   }
   function pickBestFromMultiple(vars, index, context) {
-    const keywords = context ? getContextKeywords4(context.property, context.nodeType) : [];
+    const keywords = context ? getContextKeywords2(context.property, context.nodeType) : [];
     const system = [];
     const nonComponent = [];
     for (const v of vars) {
@@ -3555,14 +3786,32 @@
       }
       const expectedType = getExpectedVariableType(ruleId);
       const currentValue = readCurrentValue(sceneNode, property);
-      const variable = await findVariableForToken(
-        tokenPath,
-        index,
-        expectedType,
-        tokens,
-        { property, nodeType: sceneNode.type },
-        currentValue
-      );
+      let variable = null;
+      const currentBoundName = await readBoundVariableName(sceneNode, property);
+      if (currentBoundName && normalizePath(currentBoundName) !== normalizePath(tokenPath)) {
+        console.log('[Fixer] Phase 0: trying current binding "' + currentBoundName + '"');
+        variable = await findVariableForToken(
+          currentBoundName,
+          index,
+          expectedType,
+          tokens,
+          { property, nodeType: sceneNode.type },
+          currentValue
+        );
+        if (variable) {
+          console.log("[Fixer] Phase 0 resolved: " + variable.name);
+        }
+      }
+      if (!variable) {
+        variable = await findVariableForToken(
+          tokenPath,
+          index,
+          expectedType,
+          tokens,
+          { property, nodeType: sceneNode.type },
+          currentValue
+        );
+      }
       if (!variable) {
         return {
           success: false,
@@ -3608,6 +3857,10 @@
     const actions = [];
     for (let i = 0; i < fixes.length; i++) {
       const fix = fixes[i];
+      try {
+        await FigmaScanner.selectNode(fix.nodeId);
+      } catch (e) {
+      }
       let nodeName = "Unknown";
       try {
         const node = await figma.getNodeByIdAsync(fix.nodeId);
@@ -3790,6 +4043,7 @@
             const textNode = sceneNode;
             const rawStyleId = textNode.textStyleId;
             const beforeValue = typeof rawStyleId === "symbol" ? "mixed" : rawStyleId || "none";
+            await loadAllFonts(textNode);
             await textNode.setTextStyleIdAsync("");
             return { success: true, message: "Text style detached", beforeValue, afterValue: "detached", actionType: "detach" };
           }
@@ -3817,6 +4071,10 @@
     let failed = 0;
     const errors = [];
     for (const detach of detaches) {
+      try {
+        await FigmaScanner.selectNode(detach.nodeId);
+      } catch (e) {
+      }
       const result = await detachStyle(detach.nodeId, detach.property);
       if (result.success) {
         successful++;
@@ -3842,6 +4100,7 @@
       }
       const rawStyleId = textNode.textStyleId;
       const beforeValue = typeof rawStyleId === "symbol" ? "mixed styles" : rawStyleId || "no style";
+      await loadAllFonts(textNode);
       await textNode.setTextStyleIdAsync(textStyleId);
       return { success: true, beforeValue, afterValue: style.name, actionType: "apply-style" };
     } catch (e) {
@@ -3884,6 +4143,10 @@
       case "number":
       case "dimension":
         return "FLOAT";
+      case "typography":
+      case "text":
+      case "shadow":
+        return null;
       default:
         return "FLOAT";
     }
@@ -3967,23 +4230,52 @@
     }
     return null;
   }
-  function getModeValues(token, tokens, themes, collection) {
+  var _themeCollectionCache = /* @__PURE__ */ new Map();
+  function parseTokensForTheme(theme, rawFiles) {
+    if (_themeCollectionCache.has(theme.id)) {
+      return _themeCollectionCache.get(theme.id);
+    }
+    const enabledSets = Object.entries(theme.selectedTokenSets).filter(([, status]) => status === "enabled" || status === "source").map(([setPath]) => setPath);
+    if (enabledSets.length === 0) return null;
+    const themeFiles = rawFiles.filter(
+      (f) => enabledSets.some((s) => f.path === s || f.path === s + ".json" || f.path.replace(/\.json$/, "") === s)
+    );
+    if (themeFiles.length === 0) return null;
+    const parser = new TokenParser();
+    const collection = parser.parseTokenFiles(themeFiles);
+    _themeCollectionCache.set(theme.id, collection);
+    return collection;
+  }
+  function clearThemeCollectionCache() {
+    _themeCollectionCache.clear();
+  }
+  function getModeValues(token, tokens, themes, collection, rawFiles) {
     const modeValues = /* @__PURE__ */ new Map();
     const baseValue = tokenValueToFigmaValue(token);
     if (baseValue === null) {
       return modeValues;
     }
     const layer = getTokenLayer(token);
-    if (layer === "semantic") {
+    if (layer === "semantic" && themes.length > 0 && rawFiles.length > 0) {
       for (const mode of collection.modes) {
         const modeName = mode.name.toLowerCase();
-        let modeValue = baseValue;
         const matchingTheme = themes.find(
-          (t) => t.name.toLowerCase().includes(modeName) || t.group && t.group.toLowerCase().includes(modeName)
+          (t) => t.name.toLowerCase() === modeName || t.name.toLowerCase().includes(modeName) || t.group && t.group.toLowerCase().includes(modeName)
         );
         if (matchingTheme) {
+          const themeCollection = parseTokensForTheme(matchingTheme, rawFiles);
+          if (themeCollection) {
+            const themeToken = themeCollection.tokens.get(token.path);
+            if (themeToken) {
+              const themeValue = tokenValueToFigmaValue(themeToken);
+              if (themeValue !== null) {
+                modeValues.set(mode.modeId, themeValue);
+                continue;
+              }
+            }
+          }
         }
-        modeValues.set(mode.modeId, modeValue);
+        modeValues.set(mode.modeId, baseValue);
       }
     } else {
       for (const mode of collection.modes) {
@@ -4085,7 +4377,7 @@
     }
     return diff;
   }
-  async function syncTokensToVariables(tokens, themes, options = {}, onProgress) {
+  async function syncTokensToVariables(tokens, themes, options = {}, onProgress, rawFiles = []) {
     var _a, _b, _c, _d, _e, _f;
     const opts = {
       createNew: (_a = options.createNew) != null ? _a : true,
@@ -4107,6 +4399,7 @@
       collections: []
     };
     try {
+      clearThemeCollectionCache();
       const modeNames = [];
       for (const theme of themes) {
         if (theme.name && !modeNames.includes(theme.name)) {
@@ -4162,6 +4455,10 @@
             continue;
           }
           const variableType = getVariableType(token);
+          if (variableType === null) {
+            result.skipped++;
+            continue;
+          }
           onProgress == null ? void 0 : onProgress({
             phase: existingVarNames.has(variableName) ? "updating" : "creating",
             current: totalProcessed,
@@ -4172,7 +4469,7 @@
             const existingVariable = await findVariableByName(collection, variableName);
             if (existingVariable) {
               if (opts.updateExisting) {
-                const modeValues = getModeValues(token, tokens, themes, collection);
+                const modeValues = getModeValues(token, tokens, themes, collection, rawFiles);
                 for (const [modeId, value] of modeValues) {
                   existingVariable.setValueForMode(modeId, value);
                 }
@@ -4191,7 +4488,7 @@
               if (token.description) {
                 variable.description = token.description;
               }
-              const modeValues = getModeValues(token, tokens, themes, collection);
+              const modeValues = getModeValues(token, tokens, themes, collection, rawFiles);
               for (const [modeId, value] of modeValues) {
                 variable.setValueForMode(modeId, value);
               }
@@ -4239,12 +4536,12 @@
     }
     return result;
   }
-  async function resetVariables(tokens, themes, onProgress) {
+  async function resetVariables(tokens, themes, onProgress, rawFiles = []) {
     return syncTokensToVariables(tokens, themes, {
       createNew: false,
       updateExisting: true,
       deleteOrphans: false
-    }, onProgress);
+    }, onProgress, rawFiles);
   }
   async function getSyncStatus(tokens, collectionNames) {
     const names = {
@@ -4284,6 +4581,7 @@
   // src/plugin/main.ts
   var tokenCollection = null;
   var loadedThemeConfigs = [];
+  var loadedRawTokenFiles = [];
   var currentConfig = getDefaultConfig();
   var isLoadingTokens = false;
   function postMessage(message) {
@@ -4294,11 +4592,16 @@
     height: 600,
     themeColors: false
   });
-  function processTokenFiles(files) {
+  function processTokenFiles(files, themes) {
     if (isLoadingTokens) return;
     isLoadingTokens = true;
     try {
       console.log("[Plugin] Processing token files from UI...");
+      loadedRawTokenFiles = files;
+      if (themes && themes.length > 0) {
+        loadedThemeConfigs = themes;
+        console.log(`[Plugin] Loaded ${themes.length} theme configs`);
+      }
       const parser = new TokenParser();
       tokenCollection = parser.parseTokenFiles(files);
       console.log(`[Plugin] Loaded ${tokenCollection.tokens.size} tokens from ${files.length} files`);
@@ -4457,7 +4760,7 @@
         }
         break;
       case "TOKEN_FILES_LOADED":
-        processTokenFiles(msg.files);
+        processTokenFiles(msg.files, msg.themes);
         break;
       case "EXPORT_RESULTS":
         break;
@@ -4466,6 +4769,12 @@
           console.log("[Plugin] APPLY_FIX:", msg.nodeId, msg.property, msg.tokenPath, msg.ruleId);
           console.log("[Plugin] Theme configs available:", loadedThemeConfigs.length);
           try {
+            try {
+              await FigmaScanner.selectNode(msg.nodeId);
+              await new Promise((resolve) => setTimeout(resolve, 150));
+            } catch (e) {
+              console.warn("[Plugin] selectNode failed (non-fatal):", e);
+            }
             let nodeName = "Unknown";
             const node = await figma.getNodeByIdAsync(msg.nodeId);
             if (node && "name" in node) {
@@ -4529,6 +4838,12 @@
         break;
       case "UNBIND_VARIABLE":
         {
+          try {
+            await FigmaScanner.selectNode(msg.nodeId);
+            await new Promise((resolve) => setTimeout(resolve, 150));
+          } catch (e) {
+            console.warn("[Plugin] selectNode failed (non-fatal):", e);
+          }
           let nodeName = "Unknown";
           const unbindNode = await figma.getNodeByIdAsync(msg.nodeId);
           if (unbindNode && "name" in unbindNode) {
@@ -4550,6 +4865,12 @@
         break;
       case "DETACH_STYLE":
         {
+          try {
+            await FigmaScanner.selectNode(msg.nodeId);
+            await new Promise((resolve) => setTimeout(resolve, 150));
+          } catch (e) {
+            console.warn("[Plugin] selectNode failed (non-fatal):", e);
+          }
           let detachNodeName = "Unknown";
           const detachNode = await figma.getNodeByIdAsync(msg.nodeId);
           if (detachNode && "name" in detachNode) {
@@ -4613,6 +4934,12 @@
       case "APPLY_TEXT_STYLE":
         {
           console.log("[Plugin] APPLY_TEXT_STYLE:", msg.nodeId, msg.textStyleId, msg.property);
+          try {
+            await FigmaScanner.selectNode(msg.nodeId);
+            await new Promise((resolve) => setTimeout(resolve, 150));
+          } catch (e) {
+            console.warn("[Plugin] selectNode failed (non-fatal):", e);
+          }
           const result = await applyTextStyle(msg.nodeId, msg.textStyleId);
           let nodeName = "Unknown";
           try {
@@ -4741,7 +5068,8 @@
                 postMessage(__spreadValues({
                   type: "SYNC_PROGRESS"
                 }, progress));
-              }
+              },
+              loadedRawTokenFiles
             );
             postMessage(__spreadValues({
               type: "SYNC_COMPLETE"
@@ -4776,7 +5104,8 @@
                 postMessage(__spreadValues({
                   type: "SYNC_PROGRESS"
                 }, progress));
-              }
+              },
+              loadedRawTokenFiles
             );
             postMessage(__spreadValues({
               type: "SYNC_COMPLETE"

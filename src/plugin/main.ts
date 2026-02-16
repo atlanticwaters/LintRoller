@@ -30,6 +30,7 @@ import { syncTokensToVariables, resetVariables, getSyncStatus, analyzeSyncDiff }
 // Plugin state
 let tokenCollection: TokenCollection | null = null;
 let loadedThemeConfigs: ThemeConfig[] = [];
+let loadedRawTokenFiles: Array<{ path: string; content: Record<string, unknown> }> = [];
 let currentConfig: LintConfig = getDefaultConfig();
 let isLoadingTokens = false;
 
@@ -53,12 +54,24 @@ figma.showUI(__html__, {
  * Process token files received from the UI
  * (UI fetches tokens to avoid CSP restrictions in the plugin sandbox)
  */
-function processTokenFiles(files: Array<{ path: string; content: Record<string, unknown> }>): void {
+function processTokenFiles(
+  files: Array<{ path: string; content: Record<string, unknown> }>,
+  themes?: ThemeConfig[]
+): void {
   if (isLoadingTokens) return;
   isLoadingTokens = true;
 
   try {
     console.log('[Plugin] Processing token files from UI...');
+
+    // Store raw files for mode-specific resolution during sync
+    loadedRawTokenFiles = files;
+
+    // Store theme configs if provided
+    if (themes && themes.length > 0) {
+      loadedThemeConfigs = themes;
+      console.log(`[Plugin] Loaded ${themes.length} theme configs`);
+    }
 
     // Parse tokens
     const parser = new TokenParser();
@@ -281,7 +294,7 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
       break;
 
     case 'TOKEN_FILES_LOADED':
-      processTokenFiles(msg.files);
+      processTokenFiles(msg.files, msg.themes);
       break;
 
     case 'EXPORT_RESULTS':
@@ -293,6 +306,14 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
         console.log('[Plugin] APPLY_FIX:', msg.nodeId, msg.property, msg.tokenPath, msg.ruleId);
         console.log('[Plugin] Theme configs available:', loadedThemeConfigs.length);
         try {
+          // Highlight the node before applying the fix (best-effort, never blocks the fix)
+          try {
+            await FigmaScanner.selectNode(msg.nodeId);
+            await new Promise(resolve => setTimeout(resolve, 150));
+          } catch (e) {
+            console.warn('[Plugin] selectNode failed (non-fatal):', e);
+          }
+
           // Get node name for display
           let nodeName = 'Unknown';
           const node = await figma.getNodeByIdAsync(msg.nodeId);
@@ -360,6 +381,14 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
 
     case 'UNBIND_VARIABLE':
       {
+        // Highlight the node before unbinding (best-effort, never blocks the fix)
+        try {
+          await FigmaScanner.selectNode(msg.nodeId);
+          await new Promise(resolve => setTimeout(resolve, 150));
+        } catch (e) {
+          console.warn('[Plugin] selectNode failed (non-fatal):', e);
+        }
+
         // Get node name for display
         let nodeName = 'Unknown';
         const unbindNode = await figma.getNodeByIdAsync(msg.nodeId);
@@ -384,6 +413,14 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
 
     case 'DETACH_STYLE':
       {
+        // Highlight the node before detaching (best-effort, never blocks the fix)
+        try {
+          await FigmaScanner.selectNode(msg.nodeId);
+          await new Promise(resolve => setTimeout(resolve, 150));
+        } catch (e) {
+          console.warn('[Plugin] selectNode failed (non-fatal):', e);
+        }
+
         // Get node name for display
         let detachNodeName = 'Unknown';
         const detachNode = await figma.getNodeByIdAsync(msg.nodeId);
@@ -455,6 +492,14 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
     case 'APPLY_TEXT_STYLE':
       {
         console.log('[Plugin] APPLY_TEXT_STYLE:', msg.nodeId, msg.textStyleId, msg.property);
+        // Highlight the node before applying the text style (best-effort, never blocks the fix)
+        try {
+          await FigmaScanner.selectNode(msg.nodeId);
+          await new Promise(resolve => setTimeout(resolve, 150));
+        } catch (e) {
+          console.warn('[Plugin] selectNode failed (non-fatal):', e);
+        }
+
         const result = await applyTextStyle(msg.nodeId, msg.textStyleId);
 
         // Get node name for display
@@ -597,7 +642,8 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
                 type: 'SYNC_PROGRESS',
                 ...progress,
               });
-            }
+            },
+            loadedRawTokenFiles
           );
           postMessage({
             type: 'SYNC_COMPLETE',
@@ -635,7 +681,8 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
                 type: 'SYNC_PROGRESS',
                 ...progress,
               });
-            }
+            },
+            loadedRawTokenFiles
           );
           postMessage({
             type: 'SYNC_COMPLETE',

@@ -7,7 +7,7 @@
 import type { TokenFileInput, TokenSetMetadata, ThemeConfig } from '../shared/types';
 
 // Base URL for token files (using raw GitHub content)
-const TOKENS_BASE_URL = 'https://raw.githubusercontent.com/atlanticwaters/Tokens-Studio-Sandbox/main';
+const TOKENS_BASE_URL = 'https://raw.githubusercontent.com/atlanticwaters/Tokens-Studio-Sandbox/main/tokens';
 
 // Token file paths matching the actual repository structure
 const TOKEN_FILE_PATHS = [

@@ -51,10 +51,25 @@ export function App() {
     parent.postMessage({ pluginMessage: message }, '*');
   }, []);
 
-  // Start a scan
+  // Start a full scan (user-initiated — clears results and activity log)
   const handleScan = useCallback(() => {
     setIsScanning(true);
     setResults(null);
+    setFixActions([]);
+    setFixProgress(null);
+    setShowActivityLog(false);
+    postMessage({
+      type: 'START_SCAN',
+      scope: { type: scope },
+      config,
+    });
+  }, [scope, config, postMessage]);
+
+  // Quiet rescan (post-fix — preserves results and activity log while scanning)
+  const handleRescan = useCallback(() => {
+    setIsScanning(true);
+    // Don't clear results — keep showing current state while rescanning
+    // Don't clear fixActions — preserve activity log from the fix operation
     postMessage({
       type: 'START_SCAN',
       scope: { type: scope },
@@ -74,9 +89,9 @@ export function App() {
           // Note: Do NOT reset fixedViolations — we need them to detect silent fix failures
           // Note: Do NOT reset ignoredViolations — they persist across scans
           // Note: Do NOT reset unfixableViolations — they persist across scans
-          setFixActions([]); // Reset activity log on new scan
+          // Note: fixActions and showActivityLog are only cleared in handleScan (user-initiated),
+          //       NOT here, so post-fix rescans preserve the activity log
           setFixProgress(null);
-          setShowActivityLog(false);
           break;
 
         case 'SCAN_PROGRESS':
@@ -172,8 +187,8 @@ export function App() {
 
               return next;
             });
-            // Re-scan to verify the fix persisted and update results
-            handleScan();
+            // Quiet rescan to verify the fix persisted (preserves activity log)
+            handleRescan();
           } else {
             // Always show error, even if message is undefined
             const errorMsg = msg.message || 'Unknown error occurred';
@@ -206,7 +221,6 @@ export function App() {
           }
 
           // Mark successful fixes in fixedViolations so UI hides them immediately
-          // (Don't auto-rescan — bindings can silently fail, causing an infinite loop)
           if (msg.actions) {
             setFixedViolations(prev => {
               const next = new Set(prev);
@@ -232,6 +246,14 @@ export function App() {
             console.error('Bulk fix errors:', msg.errors);
             alert(['Fixed ' + msg.successful + ' issues. ' + msg.failed + ' failed.'].concat(msg.errors.slice(0, 3)).join(' | '));
           }
+
+          // Auto-rescan to verify fixes persisted and show remaining violations.
+          // 500ms delay gives Figma time to commit variable bindings before rescan.
+          // Safe from infinite loops: SCAN_COMPLETE detects silent failures and moves
+          // them to unfixableViolations, which are excluded from future bulk fixes.
+          if (msg.successful > 0) {
+            setTimeout(() => handleRescan(), 500);
+          }
           break;
 
         case 'BULK_DETACH_COMPLETE':
@@ -240,9 +262,9 @@ export function App() {
             console.error('Bulk detach errors:', msg.errors);
             alert(['Detached ' + msg.successful + ' styles. ' + msg.failed + ' failed.'].concat(msg.errors.slice(0, 3)).join(' | '));
           }
-          // Re-scan to update results
+          // Quiet rescan to update results (preserves activity log)
           if (msg.successful > 0) {
-            handleScan();
+            handleRescan();
           }
           break;
 
@@ -269,7 +291,7 @@ export function App() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [handleScan]);
+  }, [handleScan, handleRescan]);
 
   // Load token source preference and ignored violations from storage on mount
   useEffect(() => {
@@ -286,15 +308,16 @@ export function App() {
       try {
         setIsLoadingTokens(true);
         console.log(`[UI] Loading tokens from source: ${tokenSource}`);
-        const files = await loadTokenFilesBySource(tokenSource);
+        const result = await loadTokenFilesBySource(tokenSource);
         if (cancelled) return;
-        console.log(`[UI] ${files.length} token files loaded, sending to plugin...`);
+        console.log(`[UI] ${result.files.length} token files loaded, ${result.themes.length} themes, sending to plugin...`);
         postMessage({
           type: 'TOKEN_FILES_LOADED',
-          files: files.map(f => ({
+          files: result.files.map(f => ({
             path: f.path,
             content: f.content,
           })),
+          themes: result.themes,
         });
       } catch (error) {
         console.error('[UI] Failed to load tokens:', error);
@@ -328,7 +351,7 @@ export function App() {
   // Apply a fix to a single violation
   const handleFix = useCallback(
     (violation: LintViolation) => {
-      if (!violation.suggestedToken || violation.suggestionConfidence === 'approximate') return;
+      if (!violation.suggestedToken) return;
 
       setIsFixing(true);
       postMessage({
@@ -580,7 +603,7 @@ export function App() {
 
       {view === 'results' && (
         <>
-          {results && <Summary results={results} fixedViolations={fixedViolations} ignoredViolations={ignoredViolations} />}
+          {results && <Summary results={results} fixedViolations={fixedViolations} unfixableViolations={unfixableViolations} ignoredViolations={ignoredViolations} />}
 
           {results && results.violations.length > 0 && (
             <>

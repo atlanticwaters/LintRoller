@@ -2,7 +2,7 @@
  * Message types for Plugin <-> UI communication
  */
 
-import type { LintConfig, LintResults, ScanScope, TokenSource } from './types';
+import type { LintConfig, LintResults, ScanScope, TokenSource, ThemeConfig } from './types';
 
 /**
  * Detailed information about a fix action for activity logging
@@ -108,6 +108,7 @@ export interface TokenFilesLoadedMessage {
     path: string;
     content: Record<string, unknown>;
   }>;
+  themes?: ThemeConfig[];
 }
 
 /** Message to save ignored violations to persistent storage */

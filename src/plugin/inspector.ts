@@ -70,10 +70,12 @@ export class PropertyInspector {
             boundVariables?: { color?: { id: string } };
           }).boundVariables;
           const bindingId = paintBoundVars?.color?.id;
-          // Include paint opacity so alpha colors are matched correctly
-          const fillOpacity = solidFill.opacity;
-          const fillRawValue = (fillOpacity !== undefined && fillOpacity < 1)
-            ? { r: solidFill.color.r, g: solidFill.color.g, b: solidFill.color.b, a: fillOpacity }
+          // Combine color.a channel and paint.opacity for correct alpha matching
+          const colorAlpha = (solidFill.color as { r: number; g: number; b: number; a?: number }).a ?? 1;
+          const paintOpacity = solidFill.opacity ?? 1;
+          const combinedAlpha = colorAlpha * paintOpacity;
+          const fillRawValue = combinedAlpha < 1
+            ? { r: solidFill.color.r, g: solidFill.color.g, b: solidFill.color.b, a: combinedAlpha }
             : solidFill.color;
           results.push({
             property: `fills[${i}]`,
@@ -95,10 +97,12 @@ export class PropertyInspector {
             boundVariables?: { color?: { id: string } };
           }).boundVariables;
           const bindingId = paintBoundVars?.color?.id;
-          // Include paint opacity so alpha colors are matched correctly
-          const strokeOpacity = solidStroke.opacity;
-          const strokeRawValue = (strokeOpacity !== undefined && strokeOpacity < 1)
-            ? { r: solidStroke.color.r, g: solidStroke.color.g, b: solidStroke.color.b, a: strokeOpacity }
+          // Combine color.a channel and paint.opacity for correct alpha matching
+          const strokeColorAlpha = (solidStroke.color as { r: number; g: number; b: number; a?: number }).a ?? 1;
+          const strokePaintOpacity = solidStroke.opacity ?? 1;
+          const strokeCombinedAlpha = strokeColorAlpha * strokePaintOpacity;
+          const strokeRawValue = strokeCombinedAlpha < 1
+            ? { r: solidStroke.color.r, g: solidStroke.color.g, b: solidStroke.color.b, a: strokeCombinedAlpha }
             : solidStroke.color;
           results.push({
             property: `strokes[${i}]`,
