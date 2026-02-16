@@ -22,6 +22,15 @@ import type { LintRuleId, ThemeConfig, TokenCollection } from '../shared/types';
 import type { FixActionDetail } from '../shared/messages';
 import { normalizePath, pathEndsWith } from '../shared/path-utils';
 import { rgbToHex } from './inspector';
+import { FigmaScanner } from './scanner';
+
+// ─── Font Loading ────────────────────────────────────────────────────────
+
+/** Load all fonts used in a text node so style changes don't throw. */
+async function loadAllFonts(textNode: TextNode): Promise<void> {
+  const fonts = textNode.getRangeAllFontNames(0, textNode.characters.length);
+  await Promise.all(fonts.map(f => figma.loadFontAsync(f)));
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -445,8 +454,10 @@ function readCurrentValue(node: SceneNode, property: string): CurrentValue {
     const fills = (node as GeometryMixin).fills;
     if (Array.isArray(fills) && fills[idx] && fills[idx].type === 'SOLID') {
       const paint = fills[idx] as SolidPaint;
-      const opacity = paint.opacity ?? 1;
-      const hex = rgbToHex({ ...paint.color, a: opacity });
+      const colorAlpha = (paint.color as { r: number; g: number; b: number; a?: number }).a ?? 1;
+      const paintOpacity = paint.opacity ?? 1;
+      const combinedAlpha = colorAlpha * paintOpacity;
+      const hex = rgbToHex({ ...paint.color, a: combinedAlpha });
       return { type: 'color', hex };
     }
   }
@@ -458,8 +469,10 @@ function readCurrentValue(node: SceneNode, property: string): CurrentValue {
     const strokes = (node as GeometryMixin).strokes;
     if (Array.isArray(strokes) && strokes[idx] && strokes[idx].type === 'SOLID') {
       const paint = strokes[idx] as SolidPaint;
-      const opacity = paint.opacity ?? 1;
-      const hex = rgbToHex({ ...paint.color, a: opacity });
+      const colorAlpha = (paint.color as { r: number; g: number; b: number; a?: number }).a ?? 1;
+      const paintOpacity = paint.opacity ?? 1;
+      const combinedAlpha = colorAlpha * paintOpacity;
+      const hex = rgbToHex({ ...paint.color, a: combinedAlpha });
       return { type: 'color', hex };
     }
   }
@@ -472,6 +485,53 @@ function readCurrentValue(node: SceneNode, property: string): CurrentValue {
   }
 
   return null;
+}
+
+// ─── Read Bound Variable Name ────────────────────────────────────────────
+
+/**
+ * Read the name of the currently-bound variable for a given property on a node.
+ * Returns the variable name (e.g., "system/icon/on-container-color/tertiary")
+ * or null if no variable is bound.
+ */
+async function readBoundVariableName(node: SceneNode, property: string): Promise<string | null> {
+  try {
+    let bindingId: string | undefined;
+
+    // Fill/stroke: binding is on the paint object
+    const fillMatch = property.match(/^fills\[(\d+)\]$/);
+    if (fillMatch && 'fills' in node) {
+      const idx = parseInt(fillMatch[1], 10);
+      const fills = (node as GeometryMixin).fills;
+      if (Array.isArray(fills) && fills[idx]) {
+        const paint = fills[idx] as unknown as { boundVariables?: { color?: { id: string } } };
+        bindingId = paint.boundVariables?.color?.id;
+      }
+    }
+
+    const strokeMatch = property.match(/^strokes\[(\d+)\]$/);
+    if (strokeMatch && 'strokes' in node) {
+      const idx = parseInt(strokeMatch[1], 10);
+      const strokes = (node as GeometryMixin).strokes;
+      if (Array.isArray(strokes) && strokes[idx]) {
+        const paint = strokes[idx] as unknown as { boundVariables?: { color?: { id: string } } };
+        bindingId = paint.boundVariables?.color?.id;
+      }
+    }
+
+    // Number properties: binding is on node.boundVariables
+    if (!bindingId) {
+      const boundVars = (node.boundVariables as Record<string, { id: string } | undefined>) || {};
+      bindingId = boundVars[property]?.id;
+    }
+
+    if (!bindingId) return null;
+
+    const variable = await figma.variables.getVariableByIdAsync(bindingId);
+    return variable?.name ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Variable Matching (Value-First) ────────────────────────────────────
@@ -526,16 +586,16 @@ async function findVariableForToken(
       } else if (currentValue && currentValue.type === 'number') {
         const varNum = index.resolvedNumberById.get(match.id);
         if (varNum !== undefined && varNum !== currentValue.value) {
-          // Allow "close" matches (same tolerance as lint rules: diff ≤ 1 or pctDiff ≤ 5%)
-          // The user accepted this trade-off by clicking Fix on a close-match suggestion
+          // Allow matches within lint rule tolerance (25% or 4px for close, 50% or 8px max)
+          // The user accepted this trade-off by clicking Fix/Use on the suggestion
           const diff = Math.abs(varNum - currentValue.value);
           const pctDiff = currentValue.value !== 0 ? diff / Math.abs(currentValue.value) : diff;
-          if (diff <= 1 || pctDiff <= 0.05) {
-            console.log('[Fixer] Name match (close, diff=' + diff.toFixed(2) + '): ' + match.name);
+          if (diff <= 4 || pctDiff <= 0.25) {
+            console.log('[Fixer] Name match (close, diff=' + diff.toFixed(2) + ', ' + (pctDiff * 100).toFixed(1) + '%): ' + match.name);
             return match;
           }
           console.log('[Fixer] Name match "' + match.name + '" rejected: number ' +
-            varNum + ' != ' + currentValue.value + ' (diff=' + diff.toFixed(2) + ')');
+            varNum + ' != ' + currentValue.value + ' (diff=' + diff.toFixed(2) + ', ' + (pctDiff * 100).toFixed(1) + '%)');
           // Fall through to Phase 2
         } else {
           console.log('[Fixer] Name match: ' + match.name);
@@ -593,7 +653,7 @@ async function findVariableForToken(
       }
     }
 
-    // Phase 2b: Close number value match (diff ≤ 1)
+    // Phase 2b: Approximate number value match (diff ≤ 4px or ≤ 25%)
     // When no exact value match exists, find variables with close values.
     // Scores by token path similarity to prefer the suggested token's variable.
     let bestCloseVar: Variable | null = null;
@@ -601,7 +661,8 @@ async function findVariableForToken(
     let bestCloseScore = -Infinity;
     for (const [numVal, vars] of index.byResolvedNumber) {
       const diff = Math.abs(numVal - currentValue.value);
-      if (diff > 0 && diff <= 1) {
+      const pctDiff = currentValue.value !== 0 ? diff / Math.abs(currentValue.value) : diff;
+      if (diff > 0 && (diff <= 4 || pctDiff <= 0.25)) {
         const typed = vars.filter(v => typeMatches(v, expectedType) && excludeComponent(v));
         if (typed.length > 0) {
           const best = pickBestVariable(typed, index, keywords, tokenPath, tokens);
@@ -1053,11 +1114,32 @@ export async function applyFix(
     // Read the node's CURRENT visual value — this is what we must preserve
     const currentValue = readCurrentValue(sceneNode, property);
 
-    const variable = await findVariableForToken(
-      tokenPath, index, expectedType, tokens,
-      { property, nodeType: sceneNode.type },
-      currentValue
-    );
+    let variable: Variable | null = null;
+
+    // Phase 0: Try the node's current bound variable name first.
+    // When a node already has a binding (e.g., from a library variable),
+    // preserve that name before falling back to the rule-suggested token path.
+    const currentBoundName = await readBoundVariableName(sceneNode, property);
+    if (currentBoundName && normalizePath(currentBoundName) !== normalizePath(tokenPath)) {
+      console.log('[Fixer] Phase 0: trying current binding "' + currentBoundName + '"');
+      variable = await findVariableForToken(
+        currentBoundName, index, expectedType, tokens,
+        { property, nodeType: sceneNode.type },
+        currentValue
+      );
+      if (variable) {
+        console.log('[Fixer] Phase 0 resolved: ' + variable.name);
+      }
+    }
+
+    // Standard matching using the rule-suggested token path
+    if (!variable) {
+      variable = await findVariableForToken(
+        tokenPath, index, expectedType, tokens,
+        { property, nodeType: sceneNode.type },
+        currentValue
+      );
+    }
 
     if (!variable) {
       return {
@@ -1129,6 +1211,9 @@ export async function applyBulkFix(
 
   for (let i = 0; i < fixes.length; i++) {
     const fix = fixes[i];
+
+    // Highlight the node being fixed (best-effort, never blocks the fix)
+    try { await FigmaScanner.selectNode(fix.nodeId); } catch { /* non-fatal */ }
 
     let nodeName = 'Unknown';
     try {
@@ -1345,6 +1430,7 @@ export async function detachStyle(
           const textNode = sceneNode as TextNode;
           const rawStyleId = textNode.textStyleId;
           const beforeValue = typeof rawStyleId === 'symbol' ? 'mixed' : (rawStyleId || 'none');
+          await loadAllFonts(textNode);
           await textNode.setTextStyleIdAsync('');
           return { success: true, message: 'Text style detached', beforeValue, afterValue: 'detached', actionType: 'detach' };
         }
@@ -1380,6 +1466,9 @@ export async function bulkDetachStyles(
   const errors: string[] = [];
 
   for (const detach of detaches) {
+    // Highlight the node being detached (best-effort, never blocks the fix)
+    try { await FigmaScanner.selectNode(detach.nodeId); } catch { /* non-fatal */ }
+
     const result = await detachStyle(detach.nodeId, detach.property);
     if (result.success) {
       successful++;
@@ -1415,6 +1504,7 @@ export async function applyTextStyle(
     const rawStyleId = textNode.textStyleId;
     const beforeValue = typeof rawStyleId === 'symbol' ? 'mixed styles' : (rawStyleId || 'no style');
 
+    await loadAllFonts(textNode);
     await textNode.setTextStyleIdAsync(textStyleId);
 
     return { success: true, beforeValue, afterValue: style.name, actionType: 'apply-style' };
