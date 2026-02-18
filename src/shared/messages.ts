@@ -2,7 +2,7 @@
  * Message types for Plugin <-> UI communication
  */
 
-import type { LintConfig, LintResults, ScanScope, TokenSource, ThemeConfig } from './types';
+import type { LintConfig, LintResults, ScanScope, TokenSource, ThemeConfig, RemapScanResult, RemapApplyResult } from './types';
 
 /**
  * Detailed information about a fix action for activity logging
@@ -170,6 +170,23 @@ export interface ResetVariablesMessage {
   type: 'RESET_VARIABLES';
 }
 
+// Remap-related messages (UI → Plugin)
+
+/** Request scan for broken variable bindings */
+export interface StartRemapScanMessage {
+  type: 'START_REMAP_SCAN';
+  scope: ScanScope;
+}
+
+/** Apply remap operations */
+export interface ApplyRemapMessage {
+  type: 'APPLY_REMAP';
+  remaps: Array<{
+    oldVariableId: string;
+    newVariableId: string;
+  }>;
+}
+
 export type UIToPluginMessage =
   | StartScanMessage
   | SelectNodeMessage
@@ -191,7 +208,9 @@ export type UIToPluginMessage =
   | GetSyncStatusMessage
   | GetSyncDiffMessage
   | StartSyncMessage
-  | ResetVariablesMessage;
+  | ResetVariablesMessage
+  | StartRemapScanMessage
+  | ApplyRemapMessage;
 
 // Messages from Plugin to UI
 
@@ -332,6 +351,34 @@ export interface SyncCompleteMessage {
   }>;
 }
 
+// Remap response messages (Plugin → UI)
+
+/** Remap scan progress update */
+export interface RemapScanProgressMessage {
+  type: 'REMAP_SCAN_PROGRESS';
+  processed: number;
+  total: number;
+}
+
+/** Remap scan complete */
+export interface RemapScanCompleteMessage {
+  type: 'REMAP_SCAN_COMPLETE';
+  result: RemapScanResult;
+}
+
+/** Remap apply progress update */
+export interface RemapProgressMessage {
+  type: 'REMAP_PROGRESS';
+  current: number;
+  total: number;
+}
+
+/** Remap apply complete */
+export interface RemapCompleteMessage {
+  type: 'REMAP_COMPLETE';
+  result: RemapApplyResult;
+}
+
 export type PluginToUIMessage =
   | ScanStartedMessage
   | ScanProgressMessage
@@ -348,4 +395,8 @@ export type PluginToUIMessage =
   | SyncStatusMessage
   | SyncDiffMessage
   | SyncProgressMessage
-  | SyncCompleteMessage;
+  | SyncCompleteMessage
+  | RemapScanProgressMessage
+  | RemapScanCompleteMessage
+  | RemapProgressMessage
+  | RemapCompleteMessage;

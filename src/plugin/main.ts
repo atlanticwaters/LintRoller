@@ -26,6 +26,7 @@ import { getLocalVariables, buildMatchedVariableIdSet } from './variables';
 import { applyFix, applyBulkFix, unbindVariable, detachStyle, bulkDetachStyles, applyTextStyle } from './fixer';
 import { clearTextStyleCache } from './rules/no-hardcoded-typography';
 import { syncTokensToVariables, resetVariables, getSyncStatus, analyzeSyncDiff } from './sync';
+import { scanForBrokenBindings, applyRemaps } from './remapper';
 
 // Plugin state
 let tokenCollection: TokenCollection | null = null;
@@ -699,6 +700,62 @@ figma.ui.onmessage = async (msg: UIToPluginMessage) => {
             skipped: 0,
             errors: [error instanceof Error ? error.message : 'Unknown error'],
             collections: [],
+          });
+        }
+      }
+      break;
+
+    case 'START_REMAP_SCAN':
+      {
+        try {
+          console.log('[Plugin] Starting remap scan');
+          const result = await scanForBrokenBindings(
+            msg.scope,
+            (processed, total) => {
+              postMessage({
+                type: 'REMAP_SCAN_PROGRESS',
+                processed,
+                total,
+              });
+            }
+          );
+          postMessage({
+            type: 'REMAP_SCAN_COMPLETE',
+            result,
+          });
+        } catch (error) {
+          console.error('[Plugin] Remap scan failed:', error);
+          postMessage({
+            type: 'ERROR',
+            message: 'Remap scan failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+          });
+        }
+      }
+      break;
+
+    case 'APPLY_REMAP':
+      {
+        try {
+          console.log('[Plugin] Applying remaps:', msg.remaps.length);
+          const result = await applyRemaps(
+            msg.remaps,
+            (current, total) => {
+              postMessage({
+                type: 'REMAP_PROGRESS',
+                current,
+                total,
+              });
+            }
+          );
+          postMessage({
+            type: 'REMAP_COMPLETE',
+            result,
+          });
+        } catch (error) {
+          console.error('[Plugin] Remap apply failed:', error);
+          postMessage({
+            type: 'ERROR',
+            message: 'Remap failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
           });
         }
       }

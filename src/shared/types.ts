@@ -262,6 +262,70 @@ export interface PropertyInspection {
   rawValue: unknown;
 }
 
+// ─── Variable Remap Types ────────────────────────────────────────────────
+
+/**
+ * A single stale or broken variable binding found during remap scan.
+ *
+ * "Stale" means the variable ID still resolves (from an old library import cache)
+ * but a local variable with the same name exists under a different ID.
+ * "Broken" means the variable ID doesn't resolve at all.
+ */
+export interface RemapEntry {
+  /** The old variable ID that needs remapping */
+  oldVariableId: string;
+  /** The name of the old variable (if resolvable, e.g. stale library import) */
+  oldVariableName?: string;
+  /** Whether this is a stale-but-resolvable binding vs fully broken */
+  kind: 'stale' | 'broken';
+  /** Number of nodes using this binding */
+  usageCount: number;
+  /** Suggested replacement variable, if one was found */
+  suggestedVariable?: {
+    id: string;
+    name: string;
+    collection: string;
+    matchMethod: 'name' | 'value' | 'name+value';
+    confidence: 'high' | 'medium' | 'low';
+  };
+  /** Whether the user has confirmed this remap */
+  confirmed: boolean;
+  /** The current visual value read from a representative node */
+  currentValue?: string;
+  /** Property type hint (e.g., 'fills[0]', 'paddingTop') */
+  propertyHint?: string;
+  /** Node type hint for context scoring */
+  nodeTypeHint?: string;
+}
+
+/**
+ * Result of scanning for broken variable bindings
+ */
+export interface RemapScanResult {
+  /** Total variable bindings inspected */
+  totalBindings: number;
+  /** Bindings pointing to healthy local variables */
+  validBindings: number;
+  /** Bindings where the variable ID doesn't resolve at all */
+  brokenBindings: number;
+  /** Bindings that resolve to a remote/cached var but a local replacement exists */
+  staleBindings: number;
+  /** Grouped entries (stale + broken) with suggestions */
+  remapEntries: RemapEntry[];
+}
+
+/**
+ * Result of applying remap operations
+ */
+export interface RemapApplyResult {
+  /** Number of bindings successfully remapped */
+  remapped: number;
+  /** Number of bindings that failed to remap */
+  failed: number;
+  /** Error messages for failures */
+  errors: string[];
+}
+
 /**
  * Default configuration
  */

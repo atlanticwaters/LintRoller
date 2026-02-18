@@ -12,8 +12,8 @@ interface HeaderProps {
   onScopeChange: (scope: ScanScope['type']) => void;
   onExport: (format: 'json' | 'csv') => void;
   hasResults: boolean;
-  view: 'results' | 'config' | 'sync';
-  onViewChange: (view: 'results' | 'config' | 'sync') => void;
+  view: 'results' | 'config' | 'sync' | 'remap';
+  onViewChange: (view: 'results' | 'config' | 'sync' | 'remap') => void;
 }
 
 export function Header({
@@ -96,6 +96,13 @@ export function Header({
           onClick={() => onViewChange('results')}
         >
           Lint
+        </button>
+        <button
+          type="button"
+          className={`tab ${view === 'remap' ? 'active' : ''}`}
+          onClick={() => onViewChange('remap')}
+        >
+          Remap
         </button>
         <button
           type="button"

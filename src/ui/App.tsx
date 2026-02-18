@@ -20,10 +20,11 @@ import { ActivityLog } from './components/ActivityLog';
 import { ResultsList } from './components/ResultsList';
 import { ConfigPanel } from './components/ConfigPanel';
 import { SyncPanel } from './components/SyncPanel';
+import { RemapPanel } from './components/RemapPanel';
 import { TokenSourceSelector } from './components/TokenSourceSelector';
 import { loadTokenFilesBySource } from './tokens-loader';
 
-type View = 'results' | 'config' | 'sync';
+type View = 'results' | 'config' | 'sync' | 'remap';
 
 export function App() {
   const [config, setConfig] = useState<LintConfig>(getDefaultConfig());
@@ -656,6 +657,8 @@ export function App() {
       {view === 'config' && <ConfigPanel config={config} onChange={handleConfigChange} />}
 
       {view === 'sync' && <SyncPanel tokenCount={tokenCount} />}
+
+      {view === 'remap' && <RemapPanel />}
     </div>
   );
 }

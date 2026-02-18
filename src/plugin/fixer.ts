@@ -56,7 +56,7 @@ export type BulkFixProgressCallback = (progress: {
  * Pre-built index of all local Figma variables.
  * Includes alias-resolved color/number maps for value-first matching.
  */
-interface VariableIndex {
+export interface VariableIndex {
   /** normalized "collectionName/varName" → Variable */
   byFullPath: Map<string, Variable>;
   /** normalized "varName" → Variable[] (may span collections) */
@@ -81,14 +81,14 @@ const INDEX_TTL_MS = 5000;
 
 // ─── Alias Resolution ────────────────────────────────────────────────────
 
-type RGBA = { r: number; g: number; b: number; a?: number };
+export type RGBA = { r: number; g: number; b: number; a?: number };
 
 /**
  * Follow alias chains to resolve a COLOR variable to its final RGBA value.
  * Semantic variables (e.g., system/text/on-surface-color/primary) store
  * VariableAlias references to core variables — this resolves through those.
  */
-function resolveToRgba(
+export function resolveToRgba(
   variable: Variable,
   defaultModes: Map<string, string>,
   variableById: Map<string, Variable>,
@@ -119,7 +119,7 @@ function resolveToRgba(
 }
 
 /** Follow alias chains to resolve a FLOAT variable to its final number value */
-function resolveToNumber(
+export function resolveToNumber(
   variable: Variable,
   defaultModes: Map<string, string>,
   variableById: Map<string, Variable>,
@@ -156,7 +156,7 @@ function isSemanticCollection(collName: string): boolean {
  * Semantic variables have names like "system/text/...", "component/button/...", etc.
  * Core variables have names like "color/moonlight/...", "spacing/...", etc.
  */
-function isSemanticVar(normalizedVarName: string, collName: string): boolean {
+export function isSemanticVar(normalizedVarName: string, collName: string): boolean {
   if (normalizedVarName.startsWith('system/') || normalizedVarName.startsWith('component/')) {
     return true;
   }
@@ -232,7 +232,7 @@ function getVariableCategory(normalizedVarName: string): NumberCategory {
 
 // ─── Index Building ──────────────────────────────────────────────────────
 
-async function buildVariableIndex(): Promise<VariableIndex> {
+export async function buildVariableIndex(): Promise<VariableIndex> {
   const variables = await figma.variables.getLocalVariablesAsync();
   const collections = await figma.variables.getLocalVariableCollectionsAsync();
 
@@ -318,7 +318,7 @@ async function buildVariableIndex(): Promise<VariableIndex> {
 }
 
 /** Get or build the variable index (cached for 5s) */
-async function getVariableIndex(): Promise<VariableIndex> {
+export async function getVariableIndex(): Promise<VariableIndex> {
   const now = Date.now();
   if (_cachedIndex && (now - _indexTimestamp) < INDEX_TTL_MS) {
     return _cachedIndex;
@@ -477,7 +477,7 @@ async function findAndImportLibraryVariable(
 
 const ICON_NODE_TYPES = ['VECTOR', 'BOOLEAN_OPERATION', 'STAR', 'LINE', 'ELLIPSE', 'POLYGON'];
 
-function getContextKeywords(property: string, nodeType: string): string[] {
+export function getContextKeywords(property: string, nodeType: string): string[] {
   // --- Color properties ---
   if (property.startsWith('strokes[')) return ['border'];
   if (property.startsWith('fills[')) {
@@ -510,7 +510,7 @@ function getContextKeywords(property: string, nodeType: string): string[] {
   return [];
 }
 
-function contextScore(normalizedVarName: string, keywords: string[]): number {
+export function contextScore(normalizedVarName: string, keywords: string[]): number {
   if (keywords.length === 0) return 0;
   const lower = normalizedVarName.toLowerCase();
   // Substring match on full path — handles compound segments like 'border-radius'
@@ -974,7 +974,7 @@ function colorToString(paint: SolidPaint): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
-async function applyColorBinding(
+export async function applyColorBinding(
   node: SceneNode,
   property: string,
   variable: Variable
@@ -1043,7 +1043,7 @@ function getNumberPropertyValue(node: SceneNode, property: string): string {
   return typeof value === 'number' ? String(value) : 'unknown';
 }
 
-async function applyNumberBinding(
+export async function applyNumberBinding(
   node: SceneNode,
   property: string,
   variable: Variable

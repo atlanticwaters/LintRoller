@@ -4683,6 +4683,474 @@
     };
   }
 
+  // src/plugin/remapper.ts
+  var NUMBER_PROPERTIES = [
+    "paddingTop",
+    "paddingRight",
+    "paddingBottom",
+    "paddingLeft",
+    "itemSpacing",
+    "counterAxisSpacing",
+    "cornerRadius",
+    "topLeftRadius",
+    "topRightRadius",
+    "bottomLeftRadius",
+    "bottomRightRadius",
+    "strokeWeight",
+    "strokeTopWeight",
+    "strokeRightWeight",
+    "strokeBottomWeight",
+    "strokeLeftWeight",
+    "width",
+    "height",
+    "minWidth",
+    "maxWidth",
+    "minHeight",
+    "maxHeight",
+    "fontSize",
+    "lineHeight",
+    "letterSpacing",
+    "paragraphSpacing"
+  ];
+  function extractBindings(node) {
+    var _a, _b, _c, _d;
+    const bindings = [];
+    const nodeId = node.id;
+    const nodeName = node.name;
+    const nodeType = node.type;
+    if ("fills" in node) {
+      const fills = node.fills;
+      if (Array.isArray(fills)) {
+        for (let i = 0; i < fills.length; i++) {
+          const paint = fills[i];
+          const id = (_b = (_a = paint.boundVariables) == null ? void 0 : _a.color) == null ? void 0 : _b.id;
+          if (id) {
+            bindings.push({ nodeId, nodeName, nodeType, property: `fills[${i}]`, variableId: id });
+          }
+        }
+      }
+    }
+    if ("strokes" in node) {
+      const strokes = node.strokes;
+      if (Array.isArray(strokes)) {
+        for (let i = 0; i < strokes.length; i++) {
+          const paint = strokes[i];
+          const id = (_d = (_c = paint.boundVariables) == null ? void 0 : _c.color) == null ? void 0 : _d.id;
+          if (id) {
+            bindings.push({ nodeId, nodeName, nodeType, property: `strokes[${i}]`, variableId: id });
+          }
+        }
+      }
+    }
+    const boundVars = node.boundVariables || {};
+    for (const prop of NUMBER_PROPERTIES) {
+      const binding = boundVars[prop];
+      if (binding == null ? void 0 : binding.id) {
+        bindings.push({ nodeId, nodeName, nodeType, property: prop, variableId: binding.id });
+      }
+    }
+    return bindings;
+  }
+  function readColorValue(node, property) {
+    var _a, _b;
+    const fillMatch = property.match(/^fills\[(\d+)\]$/);
+    if (fillMatch && "fills" in node) {
+      const idx = parseInt(fillMatch[1], 10);
+      const fills = node.fills;
+      if (Array.isArray(fills) && fills[idx] && fills[idx].type === "SOLID") {
+        const paint = fills[idx];
+        const paintOpacity = (_a = paint.opacity) != null ? _a : 1;
+        return rgbToHex(__spreadProps(__spreadValues({}, paint.color), { a: paintOpacity }));
+      }
+    }
+    const strokeMatch = property.match(/^strokes\[(\d+)\]$/);
+    if (strokeMatch && "strokes" in node) {
+      const idx = parseInt(strokeMatch[1], 10);
+      const strokes = node.strokes;
+      if (Array.isArray(strokes) && strokes[idx] && strokes[idx].type === "SOLID") {
+        const paint = strokes[idx];
+        const paintOpacity = (_b = paint.opacity) != null ? _b : 1;
+        return rgbToHex(__spreadProps(__spreadValues({}, paint.color), { a: paintOpacity }));
+      }
+    }
+    return null;
+  }
+  function readNumberValue(node, property) {
+    const val = node[property];
+    return typeof val === "number" ? val : null;
+  }
+  function suggestColorReplacement(hex, property, nodeType, index, preferredCollection) {
+    const candidates = index.byResolvedColor.get(hex);
+    if (!candidates || candidates.length === 0) {
+      console.log("[Remapper]   No color candidates for hex=" + hex);
+      return void 0;
+    }
+    console.log("[Remapper]   Color candidates for " + hex + ": " + candidates.map((v) => v.name + " (id=" + v.id + ")").join(", "));
+    let filtered = candidates;
+    if (preferredCollection) {
+      const sameCollection = candidates.filter((v) => {
+        const cName = index.collectionNames.get(v.variableCollectionId) || "";
+        return cName === preferredCollection;
+      });
+      if (sameCollection.length > 0) {
+        filtered = sameCollection;
+        console.log('[Remapper]   Filtered to same collection "' + preferredCollection + '": ' + sameCollection.map((v) => v.name).join(", "));
+      } else {
+        console.log('[Remapper]   No same-collection candidates for "' + preferredCollection + '", using all');
+      }
+    }
+    const keywords = getContextKeywords2(property, nodeType);
+    const semantic = [];
+    const core = [];
+    for (const v of filtered) {
+      const normalizedName = normalizePath(v.name);
+      const collName2 = index.collectionNames.get(v.variableCollectionId) || "";
+      if (isSemanticVar2(normalizedName, collName2)) {
+        semantic.push(v);
+      } else {
+        core.push(v);
+      }
+    }
+    const pool = semantic.length > 0 ? semantic : core;
+    let best = pool[0];
+    let bestScore = -Infinity;
+    for (const v of pool) {
+      const score = contextScore2(normalizePath(v.name), keywords);
+      if (score > bestScore) {
+        bestScore = score;
+        best = v;
+      }
+    }
+    const collName = index.collectionNames.get(best.variableCollectionId) || "";
+    return {
+      id: best.id,
+      name: best.name,
+      collection: collName,
+      matchMethod: "value",
+      confidence: semantic.length > 0 ? "high" : "medium"
+    };
+  }
+  function suggestNumberReplacement(value, property, nodeType, index, preferredCollection) {
+    const candidates = index.byResolvedNumber.get(value);
+    if (!candidates || candidates.length === 0) return void 0;
+    let filtered = candidates;
+    if (preferredCollection) {
+      const sameCollection = candidates.filter((v) => {
+        const cName = index.collectionNames.get(v.variableCollectionId) || "";
+        return cName === preferredCollection;
+      });
+      if (sameCollection.length > 0) {
+        filtered = sameCollection;
+      }
+    }
+    const keywords = getContextKeywords2(property, nodeType);
+    const semantic = [];
+    const core = [];
+    for (const v of filtered) {
+      const normalizedName = normalizePath(v.name);
+      const collName2 = index.collectionNames.get(v.variableCollectionId) || "";
+      if (isSemanticVar2(normalizedName, collName2)) {
+        semantic.push(v);
+      } else {
+        core.push(v);
+      }
+    }
+    const pool = semantic.length > 0 ? semantic : core;
+    let best = pool[0];
+    let bestScore = -Infinity;
+    for (const v of pool) {
+      const score = contextScore2(normalizePath(v.name), keywords);
+      if (score > bestScore) {
+        bestScore = score;
+        best = v;
+      }
+    }
+    const collName = index.collectionNames.get(best.variableCollectionId) || "";
+    return {
+      id: best.id,
+      name: best.name,
+      collection: collName,
+      matchMethod: "value",
+      confidence: semantic.length > 0 ? "high" : "medium"
+    };
+  }
+  async function scanForBrokenBindings(scope, onProgress) {
+    const localVars = await figma.variables.getLocalVariablesAsync();
+    const localById = /* @__PURE__ */ new Map();
+    const localByName = /* @__PURE__ */ new Map();
+    const localCollections = await figma.variables.getLocalVariableCollectionsAsync();
+    const localCollNameById = /* @__PURE__ */ new Map();
+    for (const coll of localCollections) {
+      localCollNameById.set(coll.id, coll.name);
+    }
+    for (const v of localVars) {
+      localById.set(v.id, v);
+      const normalizedName = normalizePath(v.name);
+      const existing = localByName.get(normalizedName);
+      if (existing) {
+        existing.push(v);
+      } else {
+        localByName.set(normalizedName, [v]);
+      }
+    }
+    console.log("[Remapper] \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
+    console.log("[Remapper] Local variables: " + localVars.length + " (indexed " + localByName.size + " unique names, " + localCollections.length + " collections)");
+    const nodes = [];
+    if (scope.type === "selection") {
+      flattenAll(figma.currentPage.selection, nodes);
+    } else if (scope.type === "current_page") {
+      flattenAll(figma.currentPage.children, nodes);
+    } else {
+      await figma.loadAllPagesAsync();
+      for (const page of figma.root.children) {
+        flattenAll(page.children, nodes);
+      }
+    }
+    console.log("[Remapper] Scanning " + nodes.length + " nodes (scope=" + scope.type + ")");
+    let totalBindings = 0;
+    let validBindings = 0;
+    let brokenBindings = 0;
+    let staleBindings = 0;
+    const problemByVarId = /* @__PURE__ */ new Map();
+    let logged = 0;
+    for (let i = 0; i < nodes.length; i++) {
+      const bindings = extractBindings(nodes[i]);
+      for (const b of bindings) {
+        totalBindings++;
+        if (localById.has(b.variableId)) {
+          validBindings++;
+          continue;
+        }
+        let resolvedVar = null;
+        try {
+          resolvedVar = await figma.variables.getVariableByIdAsync(b.variableId);
+        } catch (e) {
+        }
+        if (resolvedVar) {
+          const normalizedName = normalizePath(resolvedVar.name);
+          const localCandidates = localByName.get(normalizedName);
+          const localMatch = localCandidates == null ? void 0 : localCandidates.find((v) => v.id !== b.variableId);
+          if (localMatch) {
+            staleBindings++;
+            let oldCollName = "";
+            try {
+              const oldColl = await figma.variables.getVariableCollectionByIdAsync(resolvedVar.variableCollectionId);
+              if (oldColl) oldCollName = oldColl.name;
+            } catch (e) {
+            }
+            if (logged < 30) {
+              const matchCollName = localCollNameById.get(localMatch.variableCollectionId) || "?";
+              console.log('[Remapper] STALE: node="' + b.nodeName + '" prop=' + b.property + ' boundTo="' + resolvedVar.name + '" (id=' + b.variableId + ', coll="' + oldCollName + '") \u2192 local replacement: "' + localMatch.name + '" (id=' + localMatch.id + ', coll="' + matchCollName + '")');
+              logged++;
+            }
+            const existing = problemByVarId.get(b.variableId);
+            if (existing) {
+              existing.bindings.push(b);
+            } else {
+              problemByVarId.set(b.variableId, {
+                kind: "stale",
+                oldVarName: resolvedVar.name,
+                oldCollectionName: oldCollName,
+                bindings: [b]
+              });
+            }
+          } else {
+            validBindings++;
+          }
+        } else {
+          brokenBindings++;
+          if (logged < 30) {
+            console.log('[Remapper] BROKEN: node="' + b.nodeName + '" prop=' + b.property + " varId=" + b.variableId + " \u2192 no variable found");
+            logged++;
+          }
+          const existing = problemByVarId.get(b.variableId);
+          if (existing) {
+            existing.bindings.push(b);
+          } else {
+            problemByVarId.set(b.variableId, {
+              kind: "broken",
+              bindings: [b]
+            });
+          }
+        }
+      }
+      if (onProgress && (i % 100 === 0 || i === nodes.length - 1)) {
+        onProgress(i + 1, nodes.length);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+    console.log("[Remapper] \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+    console.log("[Remapper] Scan summary: " + totalBindings + " total bindings");
+    console.log("[Remapper]   " + validBindings + " valid (local or healthy library)");
+    console.log("[Remapper]   " + staleBindings + " stale (old library ID, local replacement exists)");
+    console.log("[Remapper]   " + brokenBindings + " broken (variable ID gone)");
+    console.log("[Remapper]   " + problemByVarId.size + " unique variable IDs to remap");
+    const index = await getVariableIndex();
+    const remapEntries = [];
+    for (const [oldVarId, problem] of problemByVarId) {
+      const rep = problem.bindings[0];
+      console.log("[Remapper] \u2500\u2500 " + problem.kind.toUpperCase() + ": oldId=" + oldVarId + (problem.oldVarName ? ' name="' + problem.oldVarName + '"' : "") + " (" + problem.bindings.length + " usages)");
+      const entry = {
+        oldVariableId: oldVarId,
+        oldVariableName: problem.oldVarName,
+        kind: problem.kind,
+        usageCount: problem.bindings.length,
+        confirmed: false,
+        propertyHint: rep.property,
+        nodeTypeHint: rep.nodeType
+      };
+      if (problem.kind === "stale" && problem.oldVarName) {
+        const normalizedName = normalizePath(problem.oldVarName);
+        const candidates = localByName.get(normalizedName);
+        if (candidates && candidates.length > 0) {
+          let bestMatch = candidates[0];
+          if (candidates.length > 1 && problem.oldCollectionName) {
+            const sameCollMatch = candidates.find((v) => {
+              const cName = localCollNameById.get(v.variableCollectionId) || "";
+              return cName === problem.oldCollectionName;
+            });
+            if (sameCollMatch) {
+              bestMatch = sameCollMatch;
+            } else {
+              console.log('[Remapper]   WARNING: no same-collection match for "' + problem.oldVarName + '" in coll="' + problem.oldCollectionName + '", using first candidate from coll="' + (localCollNameById.get(candidates[0].variableCollectionId) || "?") + '"');
+            }
+          }
+          const collName = localCollNameById.get(bestMatch.variableCollectionId) || "";
+          entry.suggestedVariable = {
+            id: bestMatch.id,
+            name: bestMatch.name,
+            collection: collName,
+            matchMethod: "name",
+            confidence: "high"
+          };
+          console.log('[Remapper]   SUGGESTION (name+collection match): "' + bestMatch.name + '" (id=' + bestMatch.id + ", coll=" + collName + ", oldColl=" + (problem.oldCollectionName || "?") + ")");
+        }
+      } else {
+        const node = await figma.getNodeByIdAsync(rep.nodeId);
+        if (node && node.type !== "DOCUMENT" && node.type !== "PAGE") {
+          const sceneNode = node;
+          const isColor = rep.property.startsWith("fills[") || rep.property.startsWith("strokes[");
+          const prefColl = problem.oldCollectionName;
+          if (isColor) {
+            const hex = readColorValue(sceneNode, rep.property);
+            console.log("[Remapper]   Read color: " + (hex != null ? hex : "null"));
+            if (hex) {
+              entry.currentValue = hex;
+              entry.suggestedVariable = suggestColorReplacement(hex, rep.property, rep.nodeType, index, prefColl);
+            }
+          } else {
+            const num = readNumberValue(sceneNode, rep.property);
+            console.log("[Remapper]   Read number: " + (num !== null ? num : "null"));
+            if (num !== null) {
+              entry.currentValue = String(num);
+              entry.suggestedVariable = suggestNumberReplacement(num, rep.property, rep.nodeType, index, prefColl);
+            }
+          }
+        }
+      }
+      if (!entry.suggestedVariable) {
+        console.log("[Remapper]   NO SUGGESTION found");
+      }
+      remapEntries.push(entry);
+    }
+    remapEntries.sort((a, b) => b.usageCount - a.usageCount);
+    console.log("[Remapper] \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
+    console.log("[Remapper] Final: " + remapEntries.length + " remap entries (" + remapEntries.filter((e) => e.kind === "stale").length + " stale, " + remapEntries.filter((e) => e.kind === "broken").length + " broken), " + remapEntries.filter((e) => e.suggestedVariable).length + " with suggestions");
+    return { totalBindings, validBindings, brokenBindings, staleBindings, remapEntries };
+  }
+  async function applyRemaps(remaps, onProgress) {
+    let remapped = 0;
+    let failed = 0;
+    const errors = [];
+    console.log("[Remapper] \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
+    console.log("[Remapper] Applying " + remaps.length + " remap(s):");
+    for (const r of remaps) {
+      console.log("[Remapper]   oldId=" + r.oldVariableId + " \u2192 newId=" + r.newVariableId);
+    }
+    const remapMap = /* @__PURE__ */ new Map();
+    for (const r of remaps) {
+      remapMap.set(r.oldVariableId, r.newVariableId);
+    }
+    const newVarById = /* @__PURE__ */ new Map();
+    for (const newId of new Set(remapMap.values())) {
+      try {
+        const v = await figma.variables.getVariableByIdAsync(newId);
+        if (v) {
+          newVarById.set(newId, v);
+          console.log("[Remapper]   Resolved new var: id=" + newId + ' \u2192 "' + v.name + '" type=' + v.resolvedType);
+        } else {
+          errors.push("Failed to resolve new variable: " + newId);
+        }
+      } catch (e) {
+        errors.push("Failed to resolve new variable: " + newId + ": " + (e instanceof Error ? e.message : String(e)));
+      }
+    }
+    const nodes = [];
+    await figma.loadAllPagesAsync();
+    for (const page of figma.root.children) {
+      flattenAll(page.children, nodes);
+    }
+    console.log("[Remapper] Scanning " + nodes.length + " nodes to apply remaps");
+    let processed = 0;
+    const totalNodes = nodes.length;
+    for (let i = 0; i < totalNodes; i++) {
+      const node = nodes[i];
+      const bindings = extractBindings(node);
+      for (const b of bindings) {
+        const newVarId = remapMap.get(b.variableId);
+        if (!newVarId) continue;
+        const newVar = newVarById.get(newVarId);
+        if (!newVar) {
+          failed++;
+          errors.push(b.nodeName + "." + b.property + ": new variable not resolved");
+          continue;
+        }
+        console.log('[Remapper]   REBIND: node="' + b.nodeName + '" prop=' + b.property + " oldId=" + b.variableId + ' \u2192 "' + newVar.name + '" (id=' + newVar.id + ")");
+        try {
+          const isColor = b.property.startsWith("fills[") || b.property.startsWith("strokes[");
+          if (isColor) {
+            const result = await applyColorBinding(node, b.property, newVar);
+            if (result.success) {
+              remapped++;
+            } else {
+              failed++;
+              errors.push(b.nodeName + "." + b.property + ": " + result.message);
+              console.log("[Remapper]     Failed: " + result.message);
+            }
+          } else {
+            const result = await applyNumberBinding(node, b.property, newVar);
+            if (result.success) {
+              remapped++;
+            } else {
+              failed++;
+              errors.push(b.nodeName + "." + b.property + ": " + result.message);
+              console.log("[Remapper]     Failed: " + result.message);
+            }
+          }
+        } catch (e) {
+          failed++;
+          errors.push(b.nodeName + "." + b.property + ": " + (e instanceof Error ? e.message : String(e)));
+        }
+      }
+      processed++;
+      if (onProgress && (processed % 50 === 0 || processed === totalNodes)) {
+        onProgress(processed, totalNodes);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+    console.log("[Remapper] \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
+    console.log("[Remapper] Remap complete: " + remapped + " remapped, " + failed + " failed");
+    return { remapped, failed, errors };
+  }
+  function flattenAll(roots, out) {
+    for (const node of roots) {
+      out.push(node);
+      if ("children" in node) {
+        flattenAll(node.children, out);
+      }
+    }
+  }
+
   // src/plugin/main.ts
   var tokenCollection = null;
   var loadedThemeConfigs = [];
@@ -5226,6 +5694,60 @@
               skipped: 0,
               errors: [error instanceof Error ? error.message : "Unknown error"],
               collections: []
+            });
+          }
+        }
+        break;
+      case "START_REMAP_SCAN":
+        {
+          try {
+            console.log("[Plugin] Starting remap scan");
+            const result = await scanForBrokenBindings(
+              msg.scope,
+              (processed, total) => {
+                postMessage({
+                  type: "REMAP_SCAN_PROGRESS",
+                  processed,
+                  total
+                });
+              }
+            );
+            postMessage({
+              type: "REMAP_SCAN_COMPLETE",
+              result
+            });
+          } catch (error) {
+            console.error("[Plugin] Remap scan failed:", error);
+            postMessage({
+              type: "ERROR",
+              message: "Remap scan failed: " + (error instanceof Error ? error.message : "Unknown error")
+            });
+          }
+        }
+        break;
+      case "APPLY_REMAP":
+        {
+          try {
+            console.log("[Plugin] Applying remaps:", msg.remaps.length);
+            const result = await applyRemaps(
+              msg.remaps,
+              (current, total) => {
+                postMessage({
+                  type: "REMAP_PROGRESS",
+                  current,
+                  total
+                });
+              }
+            );
+            postMessage({
+              type: "REMAP_COMPLETE",
+              result
+            });
+          } catch (error) {
+            console.error("[Plugin] Remap apply failed:", error);
+            postMessage({
+              type: "ERROR",
+              message: "Remap failed: " + (error instanceof Error ? error.message : "Unknown error")
             });
           }
         }
